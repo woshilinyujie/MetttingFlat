@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="device_gridPasswordView">
+        <attr name="device_gpvTextColor" format="color|reference" />
+        <attr name="device_gpvTextSize" format="dimension" />
+        <attr name="device_gpvLineColor" format="color" />
+        <attr name="device_gpvGridColor" format="color" />
+        <attr name="device_gpvLineWidth" format="dimension" />
+        <attr name="device_gpvPasswordLength" format="integer" />
+        <attr name="device_gpvPasswordTransformation" format="string" />
+        <attr name="device_gpvPasswordType" format="enum">
+            <enum name="numberPassword" value="0" />
+            <enum name="textPassword" value="1" />
+            <enum name="textVisiblePassword" value="2" />
+            <enum name="textWebPassword" value="3" />
+        </attr>
+    </declare-styleable>
+
+</resources>
