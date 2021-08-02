@@ -402,10 +402,14 @@ public class MainActivity extends AppCompatActivity {
                     if( !next.isHave()){
                         next.setHave(true);
                         //发送添加指令
+                        String s = Instruct.SENDBULECARD + next.getNum() + "\r\n";
+                        serialPort.sendDate(s.getBytes());
                     }
                 } else {
                     //发送删除指令
                     it.remove();
+                    String s = Instruct.DELETEBULECARD + next.getNum() + "\r\n";
+                    serialPort.sendDate(s.getBytes());
                 }
             }
 
