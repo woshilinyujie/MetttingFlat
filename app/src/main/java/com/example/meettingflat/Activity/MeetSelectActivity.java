@@ -12,7 +12,11 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.meettingflat.R;
+import com.example.meettingflat.Utils.DeviceUtils;
 import com.example.meettingflat.Utils.SPUtil;
+import com.example.meettingflat.Utils.WaitDialogTime;
+import com.example.meettingflat.base.MAPI;
+import com.example.meettingflat.bean.UserBean;
 
 public class MeetSelectActivity extends AppCompatActivity {
     private SPUtil instance;
@@ -20,6 +24,10 @@ public class MeetSelectActivity extends AppCompatActivity {
     private Button complete;
     private TextView meetName;
     private RelativeLayout back;
+    private MAPI mapi;
+    private String id;
+    private String name;
+    private WaitDialogTime waitDialogTime;
 
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -35,7 +43,15 @@ public class MeetSelectActivity extends AppCompatActivity {
         meetName = findViewById(R.id.meet_name);
         back = findViewById(R.id.back);
     }
-
+    private void initData() {
+        mapi = new MAPI();
+        id = DeviceUtils.getSerialNumber(MeetSelectActivity.this);
+        instance = SPUtil.getInstance(this);
+        name = instance.getSettingParam("meetAddress", null);
+        if(!TextUtils.isEmpty(name)){
+            meetName.setText(name);
+        }
+    }
     private void initListener() {
         back.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -52,23 +68,31 @@ public class MeetSelectActivity extends AppCompatActivity {
                     Toast.makeText(MeetSelectActivity.this,"会议门名称不能为空",Toast.LENGTH_SHORT).show();
                     return;
                 }
-                instance.setSettingParam("meetAddress",s);
-                Intent intent = getIntent();
-                intent.putExtra("meetAddress",s);
-                setResult(MEETSELECTACTIVITYCODE,intent);
-                finish();
+                if(waitDialogTime==null)
+                waitDialogTime = new WaitDialogTime(MeetSelectActivity.this, R.style.m_dialog);
+                waitDialogTime.show();
+                //先删除后绑定
+                mapi.up(MeetSelectActivity.this, id, name, false, new MAPI.Call() {
+                    @Override
+                    public void call() {
+                        mapi.up(MeetSelectActivity.this, id, s, true, new MAPI.Call() {
+                            @Override
+                            public void call() {
+                                waitDialogTime.dismiss();
+                                instance.setSettingParam("meetAddress",s);
+                                Intent intent = getIntent();
+                                intent.putExtra("meetAddress",s);
+                                setResult(MEETSELECTACTIVITYCODE,intent);
+                                finish();
+                            }
+                        });
+                    }
+                });
             }
         });
 
     }
 
-    private void initData() {
-        instance = SPUtil.getInstance(this);
-        String name = instance.getSettingParam("meetAddress", null);
-        if(!TextUtils.isEmpty(name)){
-            meetName.setText(name);
-        }
-    }
 
 
 }

@@ -227,6 +227,18 @@ public class GridPasswordView extends LinearLayout implements PasswordView {
             }
         }
     }
+
+    public void deleteAll(){
+        for (int i = mPasswordArr.length - 1; i >= 0; i--) {
+            if (mPasswordArr[i] != null) {
+                mPasswordArr[i] = null;
+                mViewArr[i].setText(null);
+            } else {
+                mViewArr[i].setText(null);
+            }
+            notifyTextChanged();
+        }
+    }
     private ImeDelBugFixedEditText.OnDelKeyEventListener onDelKeyEventListener = new ImeDelBugFixedEditText.OnDelKeyEventListener() {
 
         @Override

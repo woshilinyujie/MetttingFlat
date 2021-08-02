@@ -150,7 +150,6 @@ public class LockPasswordDialog extends Dialog {
         clear.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                String s = mPasswordView.getInput().getText().toString();
                 mPasswordView.delete();
             }
         });
@@ -169,5 +168,11 @@ public class LockPasswordDialog extends Dialog {
 
     public void setClickListener(OnConfirmClickListener clickListener) {
         mClickListener = clickListener;
+    }
+
+    @Override
+    public void show() {
+        super.show();
+        mPasswordView.deleteAll();
     }
 }

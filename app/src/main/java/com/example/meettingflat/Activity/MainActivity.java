@@ -1,15 +1,19 @@
 package com.example.meettingflat.Activity;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.text.TextUtils;
 import android.view.View;
 import android.widget.Button;
@@ -28,9 +32,13 @@ import com.example.meettingflat.Utils.WaitDialogTime;
 import com.example.meettingflat.base.MAPI;
 import com.example.meettingflat.bean.ErrBean;
 import com.example.meettingflat.bean.MeetingBean;
+import com.example.meettingflat.bean.PermissionBean;
+import com.example.meettingflat.bean.UserBean;
 import com.example.meettingflat.view.LockPasswordDialog;
 
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
@@ -56,10 +64,25 @@ public class MainActivity extends AppCompatActivity {
     private TextView meetTime;
     private RelativeLayout meetStateRl;
     private TextView meetName;
+    private ImageView setting;
     private TextView meetState;
     private Button open;
     private ImageView next;
     private TextView meetAddress;
+    private UserBean userBean;
+    private List<PermissionBean> permissionList = new ArrayList<>();
+    private Handler handler = new Handler() {
+        @SuppressLint("HandlerLeak")
+        @Override
+        public void handleMessage(@NonNull Message msg) {
+            int what = msg.what;
+            switch (what) {
+                case Instruct.SHOWTOAST:
+                    Toast.makeText(MainActivity.this, (String) msg.obj, Toast.LENGTH_SHORT).show();
+                    break;
+            }
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -73,16 +96,23 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initView() {
-        meetAddress= findViewById(R.id.meet_address);
+        meetAddress = findViewById(R.id.meet_address);
         next = findViewById(R.id.next);
         open = findViewById(R.id.open);
         meetState = findViewById(R.id.meet_state);
         meetName = findViewById(R.id.meet_name);
         meetStateRl = findViewById(R.id.meet_state_rl);
         meetTime = findViewById(R.id.meet_time);
+        setting = findViewById(R.id.setting);
     }
 
     private void initListener() {
+        setting.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startActivity(new Intent(MainActivity.this,SettingActivity.class));
+            }
+        });
         meetAddress.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -100,19 +130,20 @@ public class MainActivity extends AppCompatActivity {
                 startActivityForResult(new Intent(MainActivity.this, MeetSelectActivity.class), MEETSELECTACTIVITYCODE);
             }
         });
+
         open.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if(passwordDialog==null){
-                    passwordDialog=new LockPasswordDialog(MainActivity.this);
+                if (passwordDialog == null) {
+                    passwordDialog = new LockPasswordDialog(MainActivity.this);
                     passwordDialog.setClickListener(new LockPasswordDialog.OnConfirmClickListener() {
                         @Override
                         public void onClick(String password) {
-                            if(dialogTime==null){
-                                dialogTime=new WaitDialogTime(MainActivity.this,android.R.style.Theme_Translucent_NoTitleBar);
+                            if (dialogTime == null) {
+                                dialogTime = new WaitDialogTime(MainActivity.this, android.R.style.Theme_Translucent_NoTitleBar);
                             }
                             dialogTime.show();
-                            String s=Instruct.SENDDOOR+password+"\r\n" ;
+                            String s = Instruct.SENDDOOR + password + "\r\n";
                             serialPort.sendDate(s.getBytes());
                         }
                     });
@@ -131,35 +162,28 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void getData(String data) {
                 if (data.contains(Instruct.DOOR)) {
-                    if(dialogTime!=null&&dialogTime.isShowing())
-                        dialogTime.show();
+                    if (dialogTime != null && dialogTime.isShowing())
+                        dialogTime.dismiss();
                     String[] split = data.split("=");
                     switch (split[1]) {
-                        case "1"://表示故障1
-                            Toast.makeText(MainActivity.this, "故障1", Toast.LENGTH_SHORT).show();
-                            break;
-                        case "2"://表示故障2
-                            Toast.makeText(MainActivity.this, "故障2", Toast.LENGTH_SHORT).show();
-                            break;
-                        case "C"://表示故障3
-                            Toast.makeText(MainActivity.this, "故障3", Toast.LENGTH_SHORT).show();
-                            break;
-                        case "D"://表示故障4
-                            Toast.makeText(MainActivity.this, "故障4", Toast.LENGTH_SHORT).show();
-                            break;
-                        case "A"://表示报警1
-                            Toast.makeText(MainActivity.this, "报警1", Toast.LENGTH_SHORT).show();
-                            break;
-                        case "B"://表示报警2
-                            Toast.makeText(MainActivity.this, "报警2", Toast.LENGTH_SHORT).show();
-                            break;
-                        case "E"://表示假锁状态
-                            Toast.makeText(MainActivity.this, "假锁", Toast.LENGTH_SHORT).show();
-                            break;
                         case "8"://8表示开门成功
-                            break;
+                        {
+                            Message message = handler.obtainMessage();
+                            message.what = 1;
+                            message.obj = "开门成功";
+                            handler.sendMessage(message);
+                        }
+                        break;
                         case "9"://表示关门成功
                             break;
+                        case "10"://密码错误
+                        {
+                            Message message = handler.obtainMessage();
+                            message.what = 1;
+                            message.obj = "密码错误";
+                            handler.sendMessage(message);
+                        }
+                        break;
                     }
                 }
             }
@@ -234,6 +258,13 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
         }
+
+        mapi.searchALL(this, new MAPI.CallUser() {
+            @Override
+            public void call(UserBean bean) {
+                MainActivity.this.userBean = bean;
+            }
+        });
     }
 
 
@@ -246,18 +277,22 @@ public class MainActivity extends AppCompatActivity {
     @RequiresApi(api = Build.VERSION_CODES.O)
     public void setData(MeetingBean bean, long time) {
         long beginTime = 0;
+        long lastTime = 0;
         int flag = -1;
         List<MeetingBean.EventsBean> events = bean.getEvents();
         if (events == null || events.size() == 0) {
             meetState.setText("待启用");
-            meetStateRl.setBackgroundResource(R.drawable.shape_radius_8_1a252f);
+            meetStateRl.setBackgroundResource(R.mipmap.wait);
             meetTime.setVisibility(View.GONE);
             meetName.setText("暂无会议日程");
+            //删除或添加权限
+            sendOrDeletePermission();
             return;
         }
         meetTime.setVisibility(View.VISIBLE);
         for (int x = 0; x < events.size(); x++) {
-            if (events.get(x).getLocation().getDisplayName().equals(meetAddress)) {//是否是该会议室的会议
+            MeetingBean.EventsBean.LocationBean location = events.get(x).getLocation();
+            if (location != null && location.getDisplayName().equals(mMeetAddress)&&events.get(x).getStatus().equals("confirmed")) {//是否是该会议室的会议
                 String endTime = events.get(x).getEnd().getDateTime();
                 Date endDate = dateUtils.transitionTime(endTime);
                 String startTime = events.get(x).getStart().getDateTime();
@@ -269,6 +304,7 @@ public class MainActivity extends AppCompatActivity {
                 //选出一个时间最早的
                 if (beginTime == 0 || startDate.getTime() < beginTime) {
                     beginTime = startDate.getTime();
+                    lastTime = endDate.getTime();
                     flag = x;
                 }
             }
@@ -277,9 +313,11 @@ public class MainActivity extends AppCompatActivity {
         if (beginTime == 0) {
             //空闲
             meetState.setText("待启用");
-            meetStateRl.setBackgroundResource(R.drawable.shape_radius_8_1a252f);
+            meetStateRl.setBackgroundResource(R.mipmap.wait);
             meetTime.setVisibility(View.GONE);
             meetName.setText("暂无会议日程");
+            //删除或添加权限
+            sendOrDeletePermission();
             return;
         }
 
@@ -288,24 +326,95 @@ public class MainActivity extends AppCompatActivity {
                 //空闲中
                 meetState.setText("空闲中");
                 meetStateRl.setBackgroundResource(R.drawable.shape_radius_4_24a37e);
+                //通知后板移除
             } else {
                 //准备中
                 meetState.setText("即将开会");
                 meetStateRl.setBackgroundResource(R.drawable.shape_radius_4_c88525);
+                addPermission(events, flag, beginTime, lastTime);
             }
         } else {
             //会议中
             meetState.setText("会议中");
             meetStateRl.setBackgroundResource(R.drawable.shape_radius_4_ad3329);
+            addPermission(events, flag, beginTime, lastTime);
         }
         MeetingBean.EventsBean eventsBean = events.get(flag);
         Date date = dateUtils.transitionTime(eventsBean.getStart().getDateTime());
         Date date1 = dateUtils.transitionTime(eventsBean.getEnd().getDateTime());
-
         meetName.setText(eventsBean.getSummary());
         meetTime.setText(dateUtils.dateFormat8(date.getTime()) + "-" + dateUtils.dateFormat8(date1.getTime()));
+
+        //删除或添加权限
+        sendOrDeletePermission();
     }
 
+
+    public void addPermission(List<MeetingBean.EventsBean> events, int flag, long beginTime, long lastTime) {
+        if (userBean != null && userBean.getData().size() > 0) {
+            for (int x = 0; x < events.get(flag).getAttendees().size(); x++) {
+                for (int y = 0; y < userBean.getData().size(); y++) {
+                    String name = events.get(flag).getAttendees().get(x).getDisplayName();
+                    String name1 = userBean.getData().get(y).getParticipants();
+                    if (name.equals(name1)) {
+                        if (permissionList.size() > 0) {
+                            boolean have = false;
+                            for (int z = 0; z < permissionList.size(); z++) {
+                                if (name.equals(permissionList.get(z).getName())) {
+                                    //已经存在更新下时间
+                                    String startTime = events.get(x).getEnd().getDateTime();
+                                    Date startDate = dateUtils.transitionTime(startTime);
+                                    String endTime = events.get(x).getEnd().getDateTime();
+                                    Date endDate = dateUtils.transitionTime(endTime);
+                                    permissionList.get(z).setStartTime(startDate.getTime());
+                                    permissionList.get(z).setEndTime(endDate.getTime());
+                                    have = true;
+                                }
+                            }
+                            if (!have) {
+                                PermissionBean permissionBean = new PermissionBean();
+                                permissionBean.setName(name);
+                                permissionBean.setNum(userBean.getData().get(y).getBluetooth());
+                                permissionBean.setStartTime(beginTime);
+                                permissionBean.setEndTime(lastTime);
+                                permissionList.add(permissionBean);
+                            }
+                        } else {
+                            PermissionBean permissionBean = new PermissionBean();
+                            permissionBean.setName(name);
+                            permissionBean.setNum(userBean.getData().get(y).getBluetooth());
+                            permissionBean.setStartTime(beginTime);
+                            permissionBean.setEndTime(lastTime);
+                            permissionList.add(permissionBean);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    public void sendOrDeletePermission() {
+        if (permissionList.size() > 0) {
+            Iterator it = permissionList.iterator();
+            while (it.hasNext()) {
+                PermissionBean next = (PermissionBean) it.next();
+                if (isPermission(next)) {
+                    if( !next.isHave()){
+                        next.setHave(true);
+                        //发送添加指令
+                    }
+                } else {
+                    //发送删除指令
+                    it.remove();
+                }
+            }
+
+        }
+    }
+
+    public boolean isPermission(PermissionBean bean) {
+        return (System.currentTimeMillis() - bean.getEndTime()) < 30 * 60 * 1000;
+    }
 
     @Override
     protected void onResume() {

@@ -20,6 +20,7 @@
         </activity>
         <activity android:name=".Activity.CurrentMeetingActivity"></activity>
         <activity android:name=".Activity.MeetSelectActivity" />
+        <activity android:name=".Activity.SettingActivity" />
     </application>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission

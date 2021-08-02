@@ -115,7 +115,8 @@ public class CurrentMeetingActivity extends AppCompatActivity {
                                         recyclerView.setVisibility(View.VISIBLE);
                                         message.setVisibility(View.GONE);
                                         for(int x=0;x<bean.getEvents().size();x++){
-                                            if (bean.getEvents().get(x).getLocation().getDisplayName().equals(mMeetingAddress)) {
+                                            MeetingBean.EventsBean.LocationBean location = bean.getEvents().get(x).getLocation();
+                                            if (location!=null&&location.getDisplayName().equals(mMeetingAddress)&&bean.getEvents().get(x).getStatus().equals("confirmed")) {
                                                 list.add(bean.getEvents().get(x));
                                             }
                                         }
@@ -153,7 +154,7 @@ public class CurrentMeetingActivity extends AppCompatActivity {
                     refreshView.finishRefresh();
                     if(bean.getEvents()!=null&&bean.getEvents().size()>0){
                         for(int x=0;x<bean.getEvents().size();x++){
-                            if (bean.getEvents().get(x).getLocation().getDisplayName().equals(mMeetingAddress)) {
+                            if (bean.getEvents().get(x).getLocation().getDisplayName().equals(mMeetingAddress)&&bean.getEvents().get(x).getStatus().equals("confirmed")) {
                                 list.add(bean.getEvents().get(x));
                             }
                         }
