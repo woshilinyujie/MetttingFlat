@@ -15,6 +15,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
@@ -24,8 +25,10 @@ import android.widget.Toast;
 
 import com.example.meettingflat.R;
 import com.example.meettingflat.Utils.DateUtils;
+import com.example.meettingflat.Utils.DeviceUtils;
 import com.example.meettingflat.Utils.GsonUtils;
 import com.example.meettingflat.Utils.Instruct;
+import com.example.meettingflat.Utils.RbMqUtils;
 import com.example.meettingflat.Utils.SPUtil;
 import com.example.meettingflat.Utils.SerialPortUtil;
 import com.example.meettingflat.Utils.WaitDialogTime;
@@ -40,6 +43,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 
 public class MainActivity extends AppCompatActivity {
     private int MEETSELECTACTIVITYCODE = 100;
@@ -83,6 +88,10 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     };
+    private ScheduledExecutorService threads;
+    private Runnable runnable;
+    private RbMqUtils rbmq;
+    private String doorID;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -110,7 +119,9 @@ public class MainActivity extends AppCompatActivity {
         setting.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                startActivity(new Intent(MainActivity.this,SettingActivity.class));
+                Intent intent = new Intent(MainActivity.this,SettingActivity.class);
+                intent.putExtra("meetAddress", mMeetAddress);
+                startActivity(intent);
             }
         });
         meetAddress.setOnClickListener(new View.OnClickListener() {
@@ -145,12 +156,48 @@ public class MainActivity extends AppCompatActivity {
                             dialogTime.show();
                             String s = Instruct.SENDDOOR + password + "\r\n";
                             serialPort.sendDate(s.getBytes());
+                            rbmq.pushMsg(mMeetAddress+","+doorID);
                         }
                     });
                 }
                 passwordDialog.show();
             }
         });
+        runnable = new Runnable() {
+            @Override
+            public void run() {
+                if (permissionList.size() > 0) {
+                    Iterator it = permissionList.iterator();
+                    while (it.hasNext()) {
+                        PermissionBean next = (PermissionBean) it.next();
+                        if (isPermission(next)) {
+                            if( !next.isHave()){
+                                next.setHave(true);
+                                //发送添加指令
+                                String s = Instruct.SENDBULECARD + next.getNum() + "\r\n";
+                                serialPort.sendDate(s.getBytes());
+                                try {
+                                    Thread.sleep(100);
+                                } catch (InterruptedException e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                        } else {
+                            //发送删除指令
+                            it.remove();
+                            String s = Instruct.DELETEBULECARD + next.getNum() + "\r\n";
+                            serialPort.sendDate(s.getBytes());
+                            try {
+                                Thread.sleep(100);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    }
+                }
+
+            }
+        };
     }
 
     /**
@@ -191,6 +238,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initData() {
+        doorID = DeviceUtils.getSerialNumber(this);
+        rbmq = new RbMqUtils();
+        setMq();
+        threads = Executors.newScheduledThreadPool(1);
         spUtil = SPUtil.getInstance(this);
         mMeetAddress = spUtil.getSettingParam("meetAddress", null);
         if (TextUtils.isEmpty(mMeetAddress)) {
@@ -203,6 +254,25 @@ public class MainActivity extends AppCompatActivity {
         filter.addAction(Intent.ACTION_TIME_TICK);
         registerReceiver(receiver, filter);
         dateUtils = DateUtils.getInstance();
+
+    }
+
+    /**
+     * 服务器socket
+     */
+    public void setMq() {
+        //发送端
+        rbmq.publishToAMPQ("");
+        //接收端
+        String s = doorID+ "_robot";
+        rbmq.subscribe(s);
+        rbmq.setUpConnectionFactory();
+        rbmq.setRbMsgListener(new RbMqUtils.OnRbMsgListener() {
+            @Override
+            public void AcceptMsg(String msg) {//服务器返回数据
+                Log.e("服务器发给平板---", msg);
+            }
+        });
 
     }
 
@@ -293,6 +363,7 @@ public class MainActivity extends AppCompatActivity {
         for (int x = 0; x < events.size(); x++) {
             MeetingBean.EventsBean.LocationBean location = events.get(x).getLocation();
             if (location != null && location.getDisplayName().equals(mMeetAddress)&&events.get(x).getStatus().equals("confirmed")) {//是否是该会议室的会议
+                //未取消会议
                 String endTime = events.get(x).getEnd().getDateTime();
                 Date endDate = dateUtils.transitionTime(endTime);
                 String startTime = events.get(x).getStart().getDateTime();
@@ -306,6 +377,15 @@ public class MainActivity extends AppCompatActivity {
                     beginTime = startDate.getTime();
                     lastTime = endDate.getTime();
                     flag = x;
+                }
+            }else if(location != null && location.getDisplayName().equals(mMeetAddress)&&permissionList!=null){
+                //取消的会议
+                for(int y=0;y<permissionList.size();y++){
+                     if(permissionList.get(y).getMeetId().equals(events.get(x).getId())){
+                         //取消的会议删除权限
+                         permissionList.get(y).setCancel(true);
+                         sendOrDeletePermission();
+                     }
                 }
             }
         }
@@ -331,14 +411,13 @@ public class MainActivity extends AppCompatActivity {
                 //准备中
                 meetState.setText("即将开会");
                 meetStateRl.setBackgroundResource(R.drawable.shape_radius_4_c88525);
-                addPermission(events, flag, beginTime, lastTime);
             }
         } else {
             //会议中
             meetState.setText("会议中");
             meetStateRl.setBackgroundResource(R.drawable.shape_radius_4_ad3329);
-            addPermission(events, flag, beginTime, lastTime);
         }
+        addPermission(events, flag, beginTime, lastTime);
         MeetingBean.EventsBean eventsBean = events.get(flag);
         Date date = dateUtils.transitionTime(eventsBean.getStart().getDateTime());
         Date date1 = dateUtils.transitionTime(eventsBean.getEnd().getDateTime());
@@ -362,12 +441,13 @@ public class MainActivity extends AppCompatActivity {
                             for (int z = 0; z < permissionList.size(); z++) {
                                 if (name.equals(permissionList.get(z).getName())) {
                                     //已经存在更新下时间
-                                    String startTime = events.get(x).getEnd().getDateTime();
+                                    String startTime = events.get(flag).getStart().getDateTime();
                                     Date startDate = dateUtils.transitionTime(startTime);
-                                    String endTime = events.get(x).getEnd().getDateTime();
+                                    String endTime = events.get(flag).getEnd().getDateTime();
                                     Date endDate = dateUtils.transitionTime(endTime);
                                     permissionList.get(z).setStartTime(startDate.getTime());
                                     permissionList.get(z).setEndTime(endDate.getTime());
+                                    permissionList.get(z).setMeetId(events.get(flag).getId());
                                     have = true;
                                 }
                             }
@@ -377,6 +457,7 @@ public class MainActivity extends AppCompatActivity {
                                 permissionBean.setNum(userBean.getData().get(y).getBluetooth());
                                 permissionBean.setStartTime(beginTime);
                                 permissionBean.setEndTime(lastTime);
+                                permissionBean.setMeetId(events.get(flag).getId());
                                 permissionList.add(permissionBean);
                             }
                         } else {
@@ -385,6 +466,7 @@ public class MainActivity extends AppCompatActivity {
                             permissionBean.setNum(userBean.getData().get(y).getBluetooth());
                             permissionBean.setStartTime(beginTime);
                             permissionBean.setEndTime(lastTime);
+                            permissionBean.setMeetId(events.get(flag).getId());
                             permissionList.add(permissionBean);
                         }
                     }
@@ -394,30 +476,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void sendOrDeletePermission() {
-        if (permissionList.size() > 0) {
-            Iterator it = permissionList.iterator();
-            while (it.hasNext()) {
-                PermissionBean next = (PermissionBean) it.next();
-                if (isPermission(next)) {
-                    if( !next.isHave()){
-                        next.setHave(true);
-                        //发送添加指令
-                        String s = Instruct.SENDBULECARD + next.getNum() + "\r\n";
-                        serialPort.sendDate(s.getBytes());
-                    }
-                } else {
-                    //发送删除指令
-                    it.remove();
-                    String s = Instruct.DELETEBULECARD + next.getNum() + "\r\n";
-                    serialPort.sendDate(s.getBytes());
-                }
-            }
-
-        }
+        threads.execute(runnable);
     }
 
     public boolean isPermission(PermissionBean bean) {
-        return (System.currentTimeMillis() - bean.getEndTime()) < 30 * 60 * 1000;
+        return (System.currentTimeMillis() - bean.getEndTime()) < 30 * 60 * 1000&&!bean.isCancel();
     }
 
     @Override

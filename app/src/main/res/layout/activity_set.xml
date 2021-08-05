@@ -67,15 +67,13 @@
                     android:text="开门联动"
                     android:textColor="#ffffff"
                     android:textSize="@dimen/sp_16" />
-                <com.suke.widget.SwitchButton
-                   app:sb_show_indicator="false"
-                    app:sb_uncheckcircle_radius="@dimen/dp_0"
+                <ch.ielse.view.SwitchView
+
+                    android:id="@+id/link"
                     android:layout_alignParentRight="true"
                     android:layout_centerVertical="true"
-                    android:id="@+id/link"
                     android:layout_width="@dimen/dp_40"
-                    android:layout_height="@dimen/dp_25"
-                    android:layout_marginTop="10dp" />
+                    android:layout_height="@dimen/dp_22" />
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="@dimen/dp_1"

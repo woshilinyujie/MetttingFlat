@@ -5,6 +5,8 @@ import android.content.Context;
 import android.widget.Toast;
 
 import com.example.meettingflat.Utils.GsonUtils;
+import com.example.meettingflat.bean.BaseBean;
+import com.example.meettingflat.bean.GetLinkBean;
 import com.example.meettingflat.bean.MeetingBean;
 import com.example.meettingflat.bean.ErrBean;
 import com.example.meettingflat.bean.MobleJson;
@@ -30,6 +32,7 @@ public class MAPI {
     private String ip = "http://118.31.32.134:10301/api/";
     private String upData = "meetingDoor";//上传们数据
     private String link = "meetingDoorLinkage";
+    private String getLink = "meetingDoorIsLinkage";
 
 
     /**
@@ -229,9 +232,9 @@ public class MAPI {
         String url = ip + upData;
         UpJson upJson = new UpJson();
         if (isLink) {
-            upJson.setTab("1");
-        } else {
             upJson.setTab("0");
+        } else {
+            upJson.setTab("1");
         }
         UpJson.MeetingdoorBean meetingdoorBean = new UpJson.MeetingdoorBean();
         meetingdoorBean.setDoor_id(id);
@@ -263,20 +266,21 @@ public class MAPI {
                 });
     }
 
-    public void setLink(Context context, String id, boolean isLink, String name, CallUser call) {
+    public void setLink(Context context, String id, boolean isLink, String name, Call call) {
         String url = ip + link;
         UpJson upJson = new UpJson();
-        upJson.setTab("1");
         UpJson.MeetingdoorBean meetingdoorBean = new UpJson.MeetingdoorBean();
         meetingdoorBean.setDoor_id(id);
         if (isLink) {
             meetingdoorBean.setLinkage(id);
+            upJson.setTab("1");
         } else {
             meetingdoorBean.setLinkage("");
+            upJson.setTab("0");
         }
         meetingdoorBean.setMeeting_name(name);
         upJson.setMeetingdoor(meetingdoorBean);
-        String s = GsonUtils.GsonString(meetingdoorBean);
+        String s = GsonUtils.GsonString(upJson);
         MediaType JSON = MediaType.parse("application/json; charset=utf-8");
         RequestBody requestBody = RequestBody.create(JSON, s);
         OkGo.<String>post(url)
@@ -288,9 +292,32 @@ public class MAPI {
                     @Override
                     public void onSuccess(Response<String> response) {
                         String json = response.body();
-                        UpBean upBean = GsonUtils.GsonToBean(json, UpBean.class);
-                        if (upBean.getCode() == 200 && upBean.getMsg().equals("success")) {
+                        BaseBean baseBean = GsonUtils.GsonToBean(json, BaseBean.class);
+                        if(baseBean.getCode()==200&&baseBean.getMsg().equals("success")){
+                            call.call();                        }
+                    }
 
+                    @Override
+                    public void onError(Response<String> response) {
+
+                    }
+                });
+    }
+
+
+    public void getLink(Context context, String id,  CallLink call) {
+        String url = ip + getLink+"/"+id;
+        OkGo.<String>get(url)
+                .tag(context)
+                .cacheMode(CacheMode.DEFAULT)
+                .execute(new StringCallback() {
+
+                    @Override
+                    public void onSuccess(Response<String> response) {
+                        String json = response.body();
+                        GetLinkBean getLinkBean = GsonUtils.GsonToBean(json, GetLinkBean.class);
+                        if(getLinkBean.getCode()==200&&getLinkBean.getMsg().equals("success")&&getLinkBean.getData()!=null){
+                            call.call(getLinkBean);
                         }
                     }
 
@@ -321,5 +348,8 @@ public class MAPI {
 
     public interface CallUser {
         void call(UserBean bean);
+    }
+    public interface CallLink {
+        void call(GetLinkBean bean);
     }
 }

@@ -6,6 +6,24 @@ public class PermissionBean {
     private long startTime;
     private long endTime;
     private boolean isHave;
+    private String meetId;
+    private boolean isCancel;
+
+    public boolean isCancel() {
+        return isCancel;
+    }
+
+    public void setCancel(boolean cancel) {
+        isCancel = cancel;
+    }
+
+    public String getMeetId() {
+        return meetId;
+    }
+
+    public void setMeetId(String meetId) {
+        this.meetId = meetId;
+    }
 
     public boolean isHave() {
         return isHave;

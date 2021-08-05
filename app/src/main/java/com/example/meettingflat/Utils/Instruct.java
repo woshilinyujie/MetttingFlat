@@ -6,4 +6,5 @@ public class Instruct {
       public static final int SHOWTOAST=1;//
       public static String SENDBULECARD="+CPWBLEADD:";//发送添加蓝牙指令
       public static String DELETEBULECARD="+CPWBLEDEL:";//发送添加蓝牙指令
+      public static int SENDDELAY=2;//延迟发送
 }
