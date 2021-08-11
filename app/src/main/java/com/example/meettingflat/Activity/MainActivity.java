@@ -99,8 +99,8 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         mapi = new MAPI();
         initView();
-        initData();
         initSerialPort();
+        initData();
         initListener();
     }
 
@@ -156,7 +156,7 @@ public class MainActivity extends AppCompatActivity {
                             dialogTime.show();
                             String s = Instruct.SENDDOOR + password + "\r\n";
                             serialPort.sendDate(s.getBytes());
-                            rbmq.pushMsg(mMeetAddress+","+doorID);
+                            rbmq.pushMsg("openDoor:"+mMeetAddress+","+doorID);
                         }
                     });
                 }
@@ -214,6 +214,7 @@ public class MainActivity extends AppCompatActivity {
                     String[] split = data.split("=");
                     switch (split[1]) {
                         case "8"://8表示开门成功
+                        case "11"://表示无密码开门成功
                         {
                             Message message = handler.obtainMessage();
                             message.what = 1;
@@ -254,7 +255,9 @@ public class MainActivity extends AppCompatActivity {
         filter.addAction(Intent.ACTION_TIME_TICK);
         registerReceiver(receiver, filter);
         dateUtils = DateUtils.getInstance();
-
+        //权限重置
+        String s = Instruct.DELETEBULECARD + "000000000000" + "\r\n";
+        serialPort.sendDate(s.getBytes());
     }
 
     /**
@@ -264,13 +267,20 @@ public class MainActivity extends AppCompatActivity {
         //发送端
         rbmq.publishToAMPQ("");
         //接收端
-        String s = doorID+ "_robot";
-        rbmq.subscribe(s);
+        rbmq.subscribe(doorID);
         rbmq.setUpConnectionFactory();
         rbmq.setRbMsgListener(new RbMqUtils.OnRbMsgListener() {
             @Override
             public void AcceptMsg(String msg) {//服务器返回数据
                 Log.e("服务器发给平板---", msg);
+                if(msg.contains("openDoor:open")){
+                    if (dialogTime == null) {
+                        dialogTime = new WaitDialogTime(MainActivity.this, android.R.style.Theme_Translucent_NoTitleBar);
+                    }
+                    dialogTime.show();
+                    String s = Instruct.OPENDOOR;
+                    serialPort.sendDate(s.getBytes());
+                }
             }
         });
 
@@ -496,6 +506,14 @@ public class MainActivity extends AppCompatActivity {
             String name = data.getStringExtra("meetAddress");
             mMeetAddress = name;
             meetAddress.setText(name);
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if(receiver!=null){
+            unregisterReceiver(receiver);
         }
     }
 }

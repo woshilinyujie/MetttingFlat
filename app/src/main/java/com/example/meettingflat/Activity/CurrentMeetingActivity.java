@@ -154,7 +154,7 @@ public class CurrentMeetingActivity extends AppCompatActivity {
                     refreshView.finishRefresh();
                     if(bean.getEvents()!=null&&bean.getEvents().size()>0){
                         for(int x=0;x<bean.getEvents().size();x++){
-                            if (bean.getEvents().get(x).getLocation().getDisplayName().equals(mMeetingAddress)&&bean.getEvents().get(x).getStatus().equals("confirmed")) {
+                            if (bean.getEvents().get(x).getLocation()!=null&&bean.getEvents().get(x).getLocation().getDisplayName().equals(mMeetingAddress)&&bean.getEvents().get(x).getStatus().equals("confirmed")) {
                                 list.add(bean.getEvents().get(x));
                             }
                         }
