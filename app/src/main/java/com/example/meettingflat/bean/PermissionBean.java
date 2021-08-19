@@ -8,6 +8,15 @@ public class PermissionBean {
     private boolean isHave;
     private String meetId;
     private boolean isCancel;
+    private String  passWord;
+
+    public String getPassWord() {
+        return passWord;
+    }
+
+    public void setPassWord(String passWord) {
+        this.passWord = passWord;
+    }
 
     public boolean isCancel() {
         return isCancel;

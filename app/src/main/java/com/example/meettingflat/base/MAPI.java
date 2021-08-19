@@ -271,11 +271,10 @@ public class MAPI {
         UpJson upJson = new UpJson();
         UpJson.MeetingdoorBean meetingdoorBean = new UpJson.MeetingdoorBean();
         meetingdoorBean.setDoor_id(id);
+        meetingdoorBean.setLinkage(id);
         if (isLink) {
-            meetingdoorBean.setLinkage(id);
             upJson.setTab("1");
         } else {
-            meetingdoorBean.setLinkage("");
             upJson.setTab("0");
         }
         meetingdoorBean.setMeeting_name(name);
