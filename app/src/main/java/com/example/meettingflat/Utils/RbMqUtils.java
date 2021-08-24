@@ -35,6 +35,10 @@ public class RbMqUtils {
     public boolean flag=true;
     public static String MQIP="rmq.wonlycloud.com";
     public boolean connect=true;
+//    public String change="Device2Srv_ex";
+//    public String change1="Srv2Device_ex";
+    public String change="Device2SrvTest_ex";
+    public String change1="Srv2DeviceTest_ex";
     public void RbMqUtils() {
 
     }
@@ -72,14 +76,14 @@ public class RbMqUtils {
                 Channel ch = connectionAccept.createChannel();
                 ch.confirmSelect();
                 // 发布消息
-                ch.exchangeDeclare("Device2Srv_ex", "fanout", true);
-                ch.queueBind("Device2Srv_queue", "Device2Srv_ex", "");
+                ch.exchangeDeclare(change, "fanout", true);
+                ch.queueBind("Device2Srv_queue", change, "");
                 Log.e("mq---","创建mq发送端成功");
                 while (flag) {
                     String message = queue.takeFirst();
                     Log.e("队列拿到发送服务器","------"+message);
                     try {
-                        ch.basicPublish("Device2Srv_ex", routingKey, null, message.getBytes());
+                        ch.basicPublish(change, routingKey, null, message.getBytes());
                         ch.waitForConfirmsOrDie();
                     } catch(Exception e){
                         queue.putFirst(message);
@@ -151,13 +155,13 @@ public class RbMqUtils {
                 channel.basicQos(1);
 
                 // 声明交换机类型
-                channel.exchangeDeclare("Srv2Device_ex", "direct", true);
+                channel.exchangeDeclare(change1, "direct", true);
                 // 声明队列（持久的、非独占的、连接断开后队列会自动删除）
                 Map<String, Object> mapAndroid = new HashMap<String, Object>();
                 mapAndroid.put("x-expires",10000);
                 AMQP.Queue.DeclareOk q = channel.queueDeclare("", true, false, true,mapAndroid);// 声明共享队列
                 // 根据路由键将队列绑定到交换机上（需要知道交换机名称和路由键名称）
-                channel.queueBind(q.getQueue(), "Srv2Device_ex", MIE);
+                channel.queueBind(q.getQueue(), change1, MIE);
 
                 //创建消费者
                 QueueingConsumer consumer = new QueueingConsumer(channel);

@@ -103,7 +103,7 @@ public class MainActivity extends AppCompatActivity {
     private Runnable runnable;
     private RbMqUtils rbmq;
     private String doorID;
-
+    private String currentPassword;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -162,39 +162,11 @@ public class MainActivity extends AppCompatActivity {
                     passwordDialog.setClickListener(new LockPasswordDialog.OnConfirmClickListener() {
                         @Override
                         public void onClick(String password) {
-                            if(permissionList.size()==0){
-                                Toast.makeText(MainActivity.this,"当前时间无法开门",Toast.LENGTH_SHORT).show();
-                                return;
-                            }
-                            boolean passwordOpen=false;
-                            boolean timeOver=false;
-                            for(int x=0;x<permissionList.size();x++){
-                                if(permissionList.get(x).getPassWord()!=null&&permissionList.get(x).isHave()){
-                                    timeOver=true;
-                                    String mPassword = permissionList.get(x).getPassWord().replaceAll(" ", "");
-                                    int length = mPassword.length();
-                                    String substring = mPassword.substring(length - 6, length);
-                                    if(substring.equals(password)){
-                                        passwordOpen=true;
-                                        break;
-                                    }
-                                }
-                            }
-
-                            if(passwordOpen){
-                                if (dialogTime == null) {
-                                    dialogTime = new WaitDialogTime(MainActivity.this, android.R.style.Theme_Translucent_NoTitleBar);
-                                }
-                                dialogTime.show();
-                                String s = Instruct.OPENDOOR+ "\r\n";
-                                serialPort.sendDate(s.getBytes());
-                            }else{
-                                if(!timeOver){
-                                    Toast.makeText(MainActivity.this,"当前时间无法开门",Toast.LENGTH_SHORT).show();
-                                }else{
-                                    Toast.makeText(MainActivity.this,"密码错误",Toast.LENGTH_SHORT).show();
-                                }
-                            }
+                            //先使用固定密码开门
+                            currentPassword=password;
+                            dialogTime.show();
+                            String s = Instruct.SENDDOOR+password+ "\r\n";
+                            serialPort.sendDate(s.getBytes());
                         }
                     });
                 }
@@ -213,6 +185,7 @@ public class MainActivity extends AppCompatActivity {
                                 next.setHave(true);
                                 //发送添加指令
                                 String s = Instruct.SENDBULECARD + next.getNum() + "\r\n";
+                                Log.e("发送添加指令：",s);
                                 serialPort.sendDate(s.getBytes());
                                 try {
                                     Thread.sleep(100);
@@ -224,6 +197,7 @@ public class MainActivity extends AppCompatActivity {
                             //发送删除指令
                             it.remove();
                             String s = Instruct.DELETEBULECARD + next.getNum() + "\r\n";
+                            Log.e("发送删除指令：",s);
                             serialPort.sendDate(s.getBytes());
                             try {
                                 Thread.sleep(100);
@@ -280,9 +254,39 @@ public class MainActivity extends AppCompatActivity {
                         case "10"://密码错误
                         {
                             Message message = handler.obtainMessage();
-                            message.what = 1;
-                            message.obj = "密码错误";
-                            handler.sendMessage(message);
+                            message.what = Instruct.SHOWTOAST;
+                            if(permissionList.size()==0){
+                                message.obj = "当前时间无法开门";
+                                handler.sendMessage(message);
+                                return;
+                            }
+                            boolean passwordOpen=false;
+                            boolean timeOver=false;
+                            for(int x=0;x<permissionList.size();x++){
+                                if(permissionList.get(x).getPassWord()!=null&&permissionList.get(x).isHave()){
+                                    timeOver=true;
+                                    String mPassword = permissionList.get(x).getPassWord().replaceAll(" ", "");
+                                    int length = mPassword.length();
+                                    String substring = mPassword.substring(length - 6, length);
+                                    if(substring.equals(currentPassword)){
+                                        passwordOpen=true;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if(passwordOpen){
+                                String s = Instruct.OPENDOOR+ "\r\n";
+                                serialPort.sendDate(s.getBytes());
+                            }else{
+                                if(!timeOver){
+                                    message.obj = "当前时间无法开门";
+                                }else{
+                                    message.obj = "密码错误";
+                                }
+                                handler.sendMessage(message);
+                            }
+
                         }
                         break;
                         case "13"://常开
@@ -597,7 +601,19 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public boolean isPermission(PermissionBean bean) {
-        return (System.currentTimeMillis() - bean.getEndTime()) < 30 * 60 * 1000&&!bean.isCancel();
+        if(bean.isCancel()){
+            return false;
+        }
+        if(System.currentTimeMillis()<bean.getEndTime()&&System.currentTimeMillis()>bean.getStartTime()){
+            return true;
+        }
+        long finishTime = System.currentTimeMillis() - bean.getEndTime();
+        long startTime = System.currentTimeMillis() - bean.getStartTime();
+        if((finishTime>0&&finishTime< 30 * 60 * 1000)||(startTime<0&&startTime>-15 * 60 * 1000)){
+            return true;
+        }
+
+        return   false;
     }
 
     @Override
