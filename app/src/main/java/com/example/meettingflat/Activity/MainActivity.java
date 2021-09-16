@@ -34,10 +34,16 @@ import com.example.meettingflat.Utils.SerialPortUtil;
 import com.example.meettingflat.Utils.WaitDialogTime;
 import com.example.meettingflat.base.MAPI;
 import com.example.meettingflat.bean.ErrBean;
+import com.example.meettingflat.bean.MainMsgBean;
 import com.example.meettingflat.bean.MeetingBean;
 import com.example.meettingflat.bean.PermissionBean;
+import com.example.meettingflat.bean.SetMsgBean;
 import com.example.meettingflat.bean.UserBean;
 import com.example.meettingflat.view.LockPasswordDialog;
+
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
+import org.greenrobot.eventbus.ThreadMode;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -75,6 +81,7 @@ public class MainActivity extends AppCompatActivity {
     private ImageView next;
     private TextView meetAddress;
     private UserBean userBean;
+    private int normallyOPenFlag;
     private List<PermissionBean> permissionList = new ArrayList<>();
     private Handler handler = new Handler() {
         @SuppressLint("HandlerLeak")
@@ -85,6 +92,15 @@ public class MainActivity extends AppCompatActivity {
                 case Instruct.SHOWTOAST:
                     Toast.makeText(MainActivity.this, (String) msg.obj, Toast.LENGTH_SHORT).show();
                     break;
+                case Instruct.DIALOG:
+                    if (dialogTime != null && dialogTime.isShowing()) {
+                        dialogTime.dismiss();
+                    }
+                    break;
+                case Instruct.PUSHLINK:
+                    Toast.makeText(MainActivity.this, (String) msg.obj, Toast.LENGTH_SHORT).show();
+                    rbmq.pushMsg("openDoor:" + mMeetAddress + "," + doorID);
+                    break;
             }
         }
     };
@@ -92,6 +108,7 @@ public class MainActivity extends AppCompatActivity {
     private Runnable runnable;
     private RbMqUtils rbmq;
     private String doorID;
+    private String currentPassword;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -119,8 +136,9 @@ public class MainActivity extends AppCompatActivity {
         setting.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent intent = new Intent(MainActivity.this,SettingActivity.class);
+                Intent intent = new Intent(MainActivity.this, SettingActivity.class);
                 intent.putExtra("meetAddress", mMeetAddress);
+                intent.putExtra("normallyOPen", normallyOPenFlag);
                 startActivity(intent);
             }
         });
@@ -150,13 +168,14 @@ public class MainActivity extends AppCompatActivity {
                     passwordDialog.setClickListener(new LockPasswordDialog.OnConfirmClickListener() {
                         @Override
                         public void onClick(String password) {
+                            //先使用固定密码开门
+                            currentPassword = password;
                             if (dialogTime == null) {
                                 dialogTime = new WaitDialogTime(MainActivity.this, android.R.style.Theme_Translucent_NoTitleBar);
                             }
                             dialogTime.show();
                             String s = Instruct.SENDDOOR + password + "\r\n";
                             serialPort.sendDate(s.getBytes());
-                            rbmq.pushMsg("openDoor:"+mMeetAddress+","+doorID);
                         }
                     });
                 }
@@ -171,10 +190,11 @@ public class MainActivity extends AppCompatActivity {
                     while (it.hasNext()) {
                         PermissionBean next = (PermissionBean) it.next();
                         if (isPermission(next)) {
-                            if( !next.isHave()){
+                            if (!next.isHave()) {
                                 next.setHave(true);
                                 //发送添加指令
                                 String s = Instruct.SENDBULECARD + next.getNum() + "\r\n";
+                                Log.e("发送添加指令：", s);
                                 serialPort.sendDate(s.getBytes());
                                 try {
                                     Thread.sleep(100);
@@ -186,6 +206,7 @@ public class MainActivity extends AppCompatActivity {
                             //发送删除指令
                             it.remove();
                             String s = Instruct.DELETEBULECARD + next.getNum() + "\r\n";
+                            Log.e("发送删除指令：", s);
                             serialPort.sendDate(s.getBytes());
                             try {
                                 Thread.sleep(100);
@@ -209,15 +230,34 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void getData(String data) {
                 if (data.contains(Instruct.DOOR)) {
-                    if (dialogTime != null && dialogTime.isShowing())
-                        dialogTime.dismiss();
                     String[] split = data.split("=");
                     switch (split[1]) {
-                        case "8"://8表示开门成功
-                        case "11"://表示无密码开门成功
+                        case "8"://表示密码开门成功
                         {
+                            if (dialogTime != null && dialogTime.isShowing())
+                                dialogTime.dismiss();
                             Message message = handler.obtainMessage();
                             message.what = 1;
+                            message.obj = "开门成功";
+                            handler.sendMessage(message);
+                            handler.sendEmptyMessage(Instruct.PUSHLINK);
+                        }
+                        break;
+                        case "11"://表示无密码开门成功
+                        {
+                            if (dialogTime != null && dialogTime.isShowing())
+                                dialogTime.dismiss();
+                            Message message = handler.obtainMessage();
+                            message.what = Instruct.PUSHLINK;
+                            message.obj = "开门成功";
+                            handler.sendMessage(message);
+                        }
+                        case "12"://服务器通知开门成功
+                        {
+                            if (dialogTime != null && dialogTime.isShowing())
+                                dialogTime.dismiss();
+                            Message message = handler.obtainMessage();
+                            message.what = Instruct.SHOWTOAST;
                             message.obj = "开门成功";
                             handler.sendMessage(message);
                         }
@@ -225,13 +265,90 @@ public class MainActivity extends AppCompatActivity {
                         case "9"://表示关门成功
                             break;
                         case "10"://密码错误
-                        {
-                            Message message = handler.obtainMessage();
-                            message.what = 1;
-                            message.obj = "密码错误";
-                            handler.sendMessage(message);
-                        }
-                        break;
+                            {
+                                Message message = handler.obtainMessage();
+                                message.what = Instruct.SHOWTOAST;
+                                if (permissionList.size() == 0) {
+                                    if (dialogTime != null && dialogTime.isShowing())
+                                        dialogTime.dismiss();
+                                    message.obj = "无法开门，请检查开门权限";
+                                    handler.sendMessage(message);
+                                    return;
+                                }
+                                boolean passwordOpen = false;
+                                boolean timeOver = false;
+                                for (int x = 0; x < permissionList.size(); x++) {
+                                    if (permissionList.get(x).getPassWord() != null && permissionList.get(x).isHave()) {
+                                        timeOver = true;
+                                        String mPassword = permissionList.get(x).getPassWord().replaceAll(" ", "");
+                                        int length = mPassword.length();
+                                        String substring = mPassword.substring(length - 6, length);
+                                        if (substring.equals(currentPassword)) {
+                                            passwordOpen = true;
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                if (passwordOpen) {
+                                    String s = Instruct.OPENDOOR + "\r\n";
+                                    serialPort.sendDate(s.getBytes());
+                                } else {
+                                    if (dialogTime != null && dialogTime.isShowing())
+                                        dialogTime.dismiss();
+                                    if (!timeOver) {
+                                        message.obj = "当前时间无法开门";
+                                    } else {
+                                        message.obj = "密码错误";
+                                    }
+                                    handler.sendMessage(message);
+                                }
+
+                            }
+                            break;
+                        case "13"://常开
+                            if (dialogTime != null && dialogTime.isShowing())
+                                dialogTime.dismiss();
+                            EventBus.getDefault().post(new SetMsgBean(Instruct.NORMALLYOPEN));
+                            //通知 服务器联动
+                            rbmq.pushMsg("normallyOpen:" + mMeetAddress + "," + doorID);
+                            normallyOPenFlag = 1;
+                            break;
+                        case "14"://服务器常开
+                            if (dialogTime != null && dialogTime.isShowing())
+                                dialogTime.dismiss();
+                            EventBus.getDefault().post(new SetMsgBean(Instruct.NORMALLYOPEN1));
+                            normallyOPenFlag = 1;
+                            break;
+                        case "15"://取消常开
+                            if (dialogTime != null && dialogTime.isShowing())
+                                dialogTime.dismiss();
+                            EventBus.getDefault().post(new SetMsgBean(Instruct.CANCELNORMALLYOPEN));
+                            //通知 服务器联动
+                            rbmq.pushMsg("cancelNormallyOpen:" + mMeetAddress + "," + doorID);
+                            normallyOPenFlag = 2;
+                            break;
+                        case "16"://服务器取消常开
+                            if (dialogTime != null && dialogTime.isShowing())
+                                dialogTime.dismiss();
+                            EventBus.getDefault().post(new SetMsgBean(Instruct.CANCELNORMALLYOPEN1));
+                            normallyOPenFlag = 2;
+                            break;
+                    }
+                } else if (data.contains("AT+DEFAULT=")) {
+                    String[] s = data.split("=");
+                    String[] split = s[1].split(",");
+                    switch (Integer.parseInt(split[0])) {
+                        case 7://已经常开
+                            if (normallyOPenFlag != 2) {
+                                normallyOPenFlag = 2;
+                            }
+                            break;
+                        case 8://没有开启常开
+                            if (normallyOPenFlag != 1) {
+                                normallyOPenFlag = 1;
+                            }
+                            break;
                     }
                 }
             }
@@ -239,6 +356,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initData() {
+        //获取硬件数据
+        serialPort.sendDate((Instruct.DATA + "\r\n").getBytes());
+        EventBus.getDefault().register(this);
         doorID = DeviceUtils.getSerialNumber(this);
         rbmq = new RbMqUtils();
         setMq();
@@ -273,12 +393,18 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void AcceptMsg(String msg) {//服务器返回数据
                 Log.e("服务器发给平板---", msg);
-                if(msg.contains("openDoor:open")){
+                if (msg.contains("openDoor:open")) {
                     if (dialogTime == null) {
                         dialogTime = new WaitDialogTime(MainActivity.this, android.R.style.Theme_Translucent_NoTitleBar);
                     }
                     dialogTime.show();
-                    String s = Instruct.OPENDOOR;
+                    String s = Instruct.OPENDOOR1 + "\r\n";
+                    serialPort.sendDate(s.getBytes());
+                } else if (msg.contains("normallyOpen:open")) {
+                    String s = Instruct.NORMALLYOPEN1 + "\r\n";
+                    serialPort.sendDate(s.getBytes());
+                } else if (msg.contains("normallyOpen:cancel")) {
+                    String s = Instruct.CANCELNORMALLYOPEN1 + "\r\n";
                     serialPort.sendDate(s.getBytes());
                 }
             }
@@ -372,11 +498,15 @@ public class MainActivity extends AppCompatActivity {
         meetTime.setVisibility(View.VISIBLE);
         for (int x = 0; x < events.size(); x++) {
             MeetingBean.EventsBean.LocationBean location = events.get(x).getLocation();
-            if (location != null && location.getDisplayName().equals(mMeetAddress)&&events.get(x).getStatus().equals("confirmed")) {//是否是该会议室的会议
+
+            if (location != null && location.getDisplayName().equals(mMeetAddress) && events.get(x).getStatus().equals("confirmed")) {//是否是该会议室的会议
                 //未取消会议
                 String endTime = events.get(x).getEnd().getDateTime();
-                Date endDate = dateUtils.transitionTime(endTime);
                 String startTime = events.get(x).getStart().getDateTime();
+                if (endTime == null || startTime == null) {
+                    return;
+                }
+                Date endDate = dateUtils.transitionTime(endTime);
                 Date startDate = dateUtils.transitionTime(startTime);
                 if (endDate.getTime() < time) {
                     //排除时间已经超过的会议
@@ -388,14 +518,14 @@ public class MainActivity extends AppCompatActivity {
                     lastTime = endDate.getTime();
                     flag = x;
                 }
-            }else if(location != null && location.getDisplayName().equals(mMeetAddress)&&permissionList!=null){
+            } else if (location != null && location.getDisplayName().equals(mMeetAddress) && permissionList != null) {
                 //取消的会议
-                for(int y=0;y<permissionList.size();y++){
-                     if(permissionList.get(y).getMeetId().equals(events.get(x).getId())){
-                         //取消的会议删除权限
-                         permissionList.get(y).setCancel(true);
-                         sendOrDeletePermission();
-                     }
+                for (int y = 0; y < permissionList.size(); y++) {
+                    if (permissionList.get(y).getMeetId().equals(events.get(x).getId())) {
+                        //取消的会议删除权限
+                        permissionList.get(y).setCancel(true);
+                        sendOrDeletePermission();
+                    }
                 }
             }
         }
@@ -450,7 +580,7 @@ public class MainActivity extends AppCompatActivity {
                             boolean have = false;
                             for (int z = 0; z < permissionList.size(); z++) {
                                 if (name.equals(permissionList.get(z).getName())) {
-                                    //已经存在更新下时间
+                                    //已经存在更新下时间和密码
                                     String startTime = events.get(flag).getStart().getDateTime();
                                     Date startDate = dateUtils.transitionTime(startTime);
                                     String endTime = events.get(flag).getEnd().getDateTime();
@@ -458,6 +588,8 @@ public class MainActivity extends AppCompatActivity {
                                     permissionList.get(z).setStartTime(startDate.getTime());
                                     permissionList.get(z).setEndTime(endDate.getTime());
                                     permissionList.get(z).setMeetId(events.get(flag).getId());
+                                    if (events.get(flag).getOnlineMeetingInfo() != null)
+                                        permissionList.get(z).setPassWord(events.get(flag).getOnlineMeetingInfo().getExtraInfo().getRoomCode());
                                     have = true;
                                 }
                             }
@@ -468,6 +600,8 @@ public class MainActivity extends AppCompatActivity {
                                 permissionBean.setStartTime(beginTime);
                                 permissionBean.setEndTime(lastTime);
                                 permissionBean.setMeetId(events.get(flag).getId());
+                                if (events.get(flag).getOnlineMeetingInfo() != null)
+                                    permissionBean.setPassWord(events.get(flag).getOnlineMeetingInfo().getExtraInfo().getRoomCode());
                                 permissionList.add(permissionBean);
                             }
                         } else {
@@ -477,6 +611,8 @@ public class MainActivity extends AppCompatActivity {
                             permissionBean.setStartTime(beginTime);
                             permissionBean.setEndTime(lastTime);
                             permissionBean.setMeetId(events.get(flag).getId());
+                            if (events.get(flag).getOnlineMeetingInfo() != null)
+                                permissionBean.setPassWord(events.get(flag).getOnlineMeetingInfo().getExtraInfo().getRoomCode());
                             permissionList.add(permissionBean);
                         }
                     }
@@ -490,7 +626,19 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public boolean isPermission(PermissionBean bean) {
-        return (System.currentTimeMillis() - bean.getEndTime()) < 30 * 60 * 1000&&!bean.isCancel();
+        if (bean.isCancel()) {
+            return false;
+        }
+        if (System.currentTimeMillis() < bean.getEndTime() && System.currentTimeMillis() > bean.getStartTime()) {
+            return true;
+        }
+        long finishTime = System.currentTimeMillis() - bean.getEndTime();
+        long startTime = System.currentTimeMillis() - bean.getStartTime();
+        if ((finishTime > 0 && finishTime < 30 * 60 * 1000) || (startTime < 0 && startTime > -15 * 60 * 1000)) {
+            return true;
+        }
+
+        return false;
     }
 
     @Override
@@ -512,8 +660,23 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if(receiver!=null){
+        if (receiver != null) {
             unregisterReceiver(receiver);
+        }
+        EventBus.getDefault().unregister(this);
+    }
+
+
+    //---------------------eventBus----------------
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onMessageEvent(MainMsgBean msgBean) {
+        switch (msgBean.getMsg()) {
+            case Instruct.NORMALLYOPEN://常开
+                serialPort.sendDate((Instruct.NORMALLYOPEN + "\r\n").getBytes());
+                break;
+            case Instruct.CANCELNORMALLYOPEN://取消常开
+                serialPort.sendDate((Instruct.CANCELNORMALLYOPEN + "\r\n").getBytes());
+                break;
         }
     }
 }

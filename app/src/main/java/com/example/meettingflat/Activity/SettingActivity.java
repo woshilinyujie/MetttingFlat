@@ -10,9 +10,16 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.meettingflat.R;
 import com.example.meettingflat.Utils.DeviceUtils;
+import com.example.meettingflat.Utils.Instruct;
 import com.example.meettingflat.base.MAPI;
 import com.example.meettingflat.bean.GetLinkBean;
+import com.example.meettingflat.bean.MainMsgBean;
+import com.example.meettingflat.bean.SetMsgBean;
 import com.example.meettingflat.bean.UserBean;
+
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
+import org.greenrobot.eventbus.ThreadMode;
 
 import ch.ielse.view.SwitchView;
 
@@ -24,6 +31,8 @@ public class SettingActivity extends AppCompatActivity {
     private String id;
     private GetLinkBean bean;
     private String address;
+    private SwitchView normallyOpen;
+    private int normallyOPenFlag;
 
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -34,9 +43,16 @@ public class SettingActivity extends AppCompatActivity {
     }
 
     private void initData() {
+        EventBus.getDefault().register(this);
         address = getIntent().getStringExtra("meetAddress");
+        normallyOPenFlag = getIntent().getIntExtra("normallyOPenFlag",0);
         mapi = new MAPI();
         id = DeviceUtils.getSerialNumber(SettingActivity.this);
+        if(normallyOPenFlag==1){
+            normallyOpen.setOpened(true);
+        }else{
+            normallyOpen.setOpened(false);
+        }
         mapi.getLink(this, id, new MAPI.CallLink() {
             @Override
             public void call(GetLinkBean bean) {
@@ -79,6 +95,31 @@ public class SettingActivity extends AppCompatActivity {
                 }
             }
         });
+
+
+        normallyOpen.setOnStateChangedListener(new SwitchView.OnStateChangedListener() {
+            @Override
+            public void toggleToOn(SwitchView view) {
+
+            }
+
+            @Override
+            public void toggleToOff(SwitchView view) {
+
+            }
+        });
+        normallyOpen.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                MainMsgBean mainMsgBean = new MainMsgBean();
+                if (normallyOpen.isOpened()) {
+                    mainMsgBean.setMsg(Instruct.CANCELNORMALLYOPEN);
+                } else {
+                    mainMsgBean.setMsg(Instruct.NORMALLYOPEN);
+                }
+                EventBus.getDefault().post(mainMsgBean);
+            }
+        });
     }
 
 
@@ -98,5 +139,26 @@ public class SettingActivity extends AppCompatActivity {
     private void initView() {
         back = findViewById(R.id.back);
         link = findViewById(R.id.link);
+        normallyOpen = findViewById(R.id.normally_open);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        EventBus.getDefault().unregister(this);
+    }
+
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onMessageEvent(SetMsgBean msgBean) {
+        switch (msgBean.getMsg()){
+            case Instruct.NORMALLYOPEN://常开
+            case Instruct.NORMALLYOPEN1:
+                normallyOpen.setOpened(true);
+                break;
+            case Instruct.CANCELNORMALLYOPEN://取消常开
+            case Instruct.CANCELNORMALLYOPEN1:
+                normallyOpen.setOpened(false);
+                break;
+        }
     }
 }

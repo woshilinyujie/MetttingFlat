@@ -80,7 +80,33 @@
                     android:layout_alignParentBottom="true"
                     android:background="#56616c" />
             </RelativeLayout>
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/dp_60"
+                android:paddingLeft="@dimen/dp_11"
+                android:paddingRight="@dimen/dp_11">
 
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerVertical="true"
+                    android:text="常开"
+                    android:textColor="#ffffff"
+                    android:textSize="@dimen/sp_16" />
+                <ch.ielse.view.SwitchView
+
+                    android:id="@+id/normally_open"
+                    android:layout_alignParentRight="true"
+                    android:layout_centerVertical="true"
+                    android:layout_width="@dimen/dp_40"
+                    android:layout_height="@dimen/dp_22" />
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/dp_1"
+                    android:layout_alignParentBottom="true"
+                    android:background="#56616c" />
+            </RelativeLayout>
         </LinearLayout>
 
     </ScrollView>

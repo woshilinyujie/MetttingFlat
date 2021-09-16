@@ -28,6 +28,26 @@ android {
             abiFilters 'armeabi-v7a' ,'arm64-v8a'//, 'x86_64',
         }
     }
+
+    signingConfigs {
+        debug {
+            keyAlias 'flat'
+            keyPassword 'wl2019'
+            storeFile file('../flat-high.keystore')
+//            storeFile file('../flat-low.keystore')
+//            storeFile file('../flat.jks')
+            storePassword 'wl2019'
+        }
+        release {
+            keyAlias 'flat'
+//            keyPassword 'wl2019'
+//            storeFile file('../flat.jks')
+//            storeFile file('../lin.keystore')
+//            storeFile file('../flat-low.keystore')
+            storeFile file('../flat-high.keystore')
+            storePassword 'wl2019'
+        }
+    }
     repositories{
         flatDir{
             dirs 'libs'
@@ -69,4 +89,5 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.0.0'                 //必须 1.0.0 以上
     implementation  'com.scwang.smart:refresh-layout-kernel:2.0.3'      //核心必须依赖
     implementation  'com.scwang.smart:refresh-header-classics:2.0.3'    //经典刷新头
+    implementation 'org.greenrobot:eventbus:3.1.1'
 }
