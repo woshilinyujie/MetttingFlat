@@ -10,6 +10,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -17,12 +18,17 @@ import android.os.Message;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.resource.bitmap.RoundedCorners;
+import com.bumptech.glide.request.RequestOptions;
 import com.example.meettingflat.R;
 import com.example.meettingflat.Utils.DateUtils;
 import com.example.meettingflat.Utils.DeviceUtils;
@@ -33,13 +39,22 @@ import com.example.meettingflat.Utils.SPUtil;
 import com.example.meettingflat.Utils.SerialPortUtil;
 import com.example.meettingflat.Utils.WaitDialogTime;
 import com.example.meettingflat.base.MAPI;
+import com.example.meettingflat.bean.AdBean;
 import com.example.meettingflat.bean.ErrBean;
+import com.example.meettingflat.bean.GetLinkBean;
 import com.example.meettingflat.bean.MainMsgBean;
 import com.example.meettingflat.bean.MeetingBean;
 import com.example.meettingflat.bean.PermissionBean;
 import com.example.meettingflat.bean.SetMsgBean;
 import com.example.meettingflat.bean.UserBean;
 import com.example.meettingflat.view.LockPasswordDialog;
+import com.pili.pldroid.player.AVOptions;
+import com.pili.pldroid.player.PLOnCompletionListener;
+import com.pili.pldroid.player.widget.PLVideoView;
+import com.youth.banner.Banner;
+import com.youth.banner.adapter.BannerImageAdapter;
+import com.youth.banner.holder.BannerImageHolder;
+import com.youth.banner.indicator.CircleIndicator;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -52,7 +67,7 @@ import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements PLOnCompletionListener {
     private int MEETSELECTACTIVITYCODE = 100;
     private MAPI mapi;
     private DateUtils dateUtils;
@@ -65,6 +80,9 @@ public class MainActivity extends AppCompatActivity {
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
             if (action.equals(Intent.ACTION_TIME_TICK)) {
+                long l = System.currentTimeMillis();
+                String s = dateUtils.dateFormat15(l);
+                systemTime.setText(s);
                 quest();
             }
         }
@@ -73,9 +91,11 @@ public class MainActivity extends AppCompatActivity {
     private String mMeetAddress;
     private SerialPortUtil serialPort;
     private TextView meetTime;
-    private RelativeLayout meetStateRl;
+    private TextView systemTime;
+    private LinearLayout meetStateRl;
     private TextView meetName;
     private ImageView setting;
+    private TextView meetState1;
     private TextView meetState;
     private Button open;
     private ImageView next;
@@ -83,6 +103,17 @@ public class MainActivity extends AppCompatActivity {
     private UserBean userBean;
     private int normallyOPenFlag;
     private List<PermissionBean> permissionList = new ArrayList<>();
+    private ScheduledExecutorService threads;
+    private Runnable runnable;
+    private RbMqUtils rbmq;
+    private String doorID;
+    private String currentPassword;
+    private LinearLayout meetAddressLl;
+    private AVOptions options;
+    private Banner banner;
+    private PLVideoView plVideoView;
+    private ArrayList<AdBean.DataBean> adDataList;
+    private int current = 0;
     private Handler handler = new Handler() {
         @SuppressLint("HandlerLeak")
         @Override
@@ -101,18 +132,18 @@ public class MainActivity extends AppCompatActivity {
                     Toast.makeText(MainActivity.this, (String) msg.obj, Toast.LENGTH_SHORT).show();
                     rbmq.pushMsg("openDoor:" + mMeetAddress + "," + doorID);
                     break;
+                case Instruct.REFRESHTIME:
+                    long l = System.currentTimeMillis();
+                    String s = dateUtils.dateFormat15(l);
+                    systemTime.setText(s);
+                    break;
             }
         }
     };
-    private ScheduledExecutorService threads;
-    private Runnable runnable;
-    private RbMqUtils rbmq;
-    private String doorID;
-    private String currentPassword;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
         setContentView(R.layout.activity_main);
         mapi = new MAPI();
         initView();
@@ -126,10 +157,15 @@ public class MainActivity extends AppCompatActivity {
         next = findViewById(R.id.next);
         open = findViewById(R.id.open);
         meetState = findViewById(R.id.meet_state);
+        meetState1 = findViewById(R.id.meet_state1);
         meetName = findViewById(R.id.meet_name);
         meetStateRl = findViewById(R.id.meet_state_rl);
         meetTime = findViewById(R.id.meet_time);
+        systemTime = findViewById(R.id.system_time);
         setting = findViewById(R.id.setting);
+        meetAddressLl = findViewById(R.id.meet_address_ll);
+        banner = findViewById(R.id.banner);
+        plVideoView = findViewById(R.id.video);
     }
 
     private void initListener() {
@@ -142,7 +178,7 @@ public class MainActivity extends AppCompatActivity {
                 startActivity(intent);
             }
         });
-        meetAddress.setOnClickListener(new View.OnClickListener() {
+        meetAddressLl.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 if (!TextUtils.isEmpty(mMeetAddress)) {
@@ -182,6 +218,21 @@ public class MainActivity extends AppCompatActivity {
                 passwordDialog.show();
             }
         });
+
+        banner.setAdapter(new BannerImageAdapter<AdBean.DataBean>(adDataList) {
+            @Override
+            public void onBindView(BannerImageHolder holder, AdBean.DataBean data, int position, int size) {
+                String msg = data.getMsg();
+                //图片加载自己实现
+                Glide.with(holder.itemView)
+                        .load(msg)
+                        .apply(RequestOptions.bitmapTransform(new RoundedCorners(30)))
+                        .into(holder.imageView);
+            }
+        }).addBannerLifecycleObserver(this).setIndicator(new CircleIndicator(this));
+
+
+
         runnable = new Runnable() {
             @Override
             public void run() {
@@ -357,6 +408,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void initData() {
         //获取硬件数据
+        handler.sendEmptyMessage(Instruct.REFRESHTIME);
         serialPort.sendDate((Instruct.DATA + "\r\n").getBytes());
         EventBus.getDefault().register(this);
         doorID = DeviceUtils.getSerialNumber(this);
@@ -378,6 +430,28 @@ public class MainActivity extends AppCompatActivity {
         //权限重置
         String s = Instruct.DELETEBULECARD + "000000000000" + "\r\n";
         serialPort.sendDate(s.getBytes());
+        mapi.getAd(this, new MAPI.CallAd() {
+            @Override
+            public void call(AdBean bean) {
+                adDataList = bean.getData();
+                if(adDataList!=null&&adDataList.size()>0){
+                    if(adDataList.get(0).getType().equals("mp4")){
+                        banner.setVisibility(View.GONE);
+                        banner.stop();
+                        plVideoView.setVisibility(View.VISIBLE);
+                        openVideoFromUri(bean.getData().get(0).getMsg());
+                    }else{
+                        //轮播图
+                        plVideoView.setVisibility(View.GONE);
+                        plVideoView.pause();
+                        plVideoView.stopPlayback();
+                        banner.setVisibility(View.VISIBLE);
+                        banner.setDatas(adDataList);
+                        banner.start();
+                    }
+                }
+            }
+        });
     }
 
     /**
@@ -487,10 +561,11 @@ public class MainActivity extends AppCompatActivity {
         int flag = -1;
         List<MeetingBean.EventsBean> events = bean.getEvents();
         if (events == null || events.size() == 0) {
-            meetState.setText("待启用");
+            meetState.setVisibility(View.GONE);
+            meetState1.setVisibility(View.GONE);
             meetStateRl.setBackgroundResource(R.mipmap.wait);
             meetTime.setVisibility(View.GONE);
-            meetName.setText("暂无会议日程");
+            meetName.setText("待启用~");
             //删除或添加权限
             sendOrDeletePermission();
             return;
@@ -532,30 +607,40 @@ public class MainActivity extends AppCompatActivity {
 
         if (beginTime == 0) {
             //空闲
-            meetState.setText("待启用");
+            meetState.setVisibility(View.GONE);
+            meetState1.setVisibility(View.GONE);
             meetStateRl.setBackgroundResource(R.mipmap.wait);
             meetTime.setVisibility(View.GONE);
-            meetName.setText("暂无会议日程");
+            meetName.setText("待启用~");
             //删除或添加权限
             sendOrDeletePermission();
             return;
         }
 
+
+        meetState.setVisibility(View.VISIBLE);
+        meetState1.setVisibility(View.VISIBLE);
+        meetStateRl.setBackgroundResource(R.drawable.shape_radius_8_1a252f);
         if (beginTime > time) {//还没开始
-            if ((beginTime - time) > 15 * 60 * 1000) {
-                //空闲中
-                meetState.setText("空闲中");
-                meetStateRl.setBackgroundResource(R.drawable.shape_radius_4_24a37e);
+//            if ((beginTime - time) > 15 * 60 * 1000) {
+            //空闲中
+                meetState.setText("空闲");
+                meetState.setBackgroundResource(R.drawable.half_circle);
+                meetState1.setTextColor(Color.parseColor("#0fb89a"));
+                meetState1.setText("暂无会议，会议室空闲中~");
                 //通知后板移除
-            } else {
-                //准备中
-                meetState.setText("即将开会");
-                meetStateRl.setBackgroundResource(R.drawable.shape_radius_4_c88525);
-            }
+//            } else {
+//                //准备中
+//                meetState.setText("即将开会");
+//                meetStateRl.setBackgroundResource(R.drawable.shape_radius_4_c88525);
+//            }
         } else {
             //会议中
+            meetState1.setTextColor(Color.parseColor("#ea332a"));
+            meetState1.setText("会议正在进行中，请勿打扰~");
             meetState.setText("会议中");
-            meetStateRl.setBackgroundResource(R.drawable.shape_radius_4_ad3329);
+            meetState.setBackgroundResource(R.drawable.half_circle_e34235);
+//            meetStateRl.setBackgroundResource(R.drawable.shape_radius_4_ad3329);
         }
         addPermission(events, flag, beginTime, lastTime);
         MeetingBean.EventsBean eventsBean = events.get(flag);
@@ -641,11 +726,6 @@ public class MainActivity extends AppCompatActivity {
         return false;
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        quest();
-    }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -657,14 +737,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        if (receiver != null) {
-            unregisterReceiver(receiver);
-        }
-        EventBus.getDefault().unregister(this);
-    }
 
 
     //---------------------eventBus----------------
@@ -679,4 +751,68 @@ public class MainActivity extends AppCompatActivity {
                 break;
         }
     }
+
+    private void openVideoFromUri(String url) {
+        if (options == null){
+            options = new AVOptions();
+            plVideoView.setOnCompletionListener(this);
+        }
+        options.setString(AVOptions.KEY_CACHE_DIR, getFilesDir() + "/" + url);
+        plVideoView.setDisplayAspectRatio(PLVideoView.ASPECT_RATIO_PAVED_PARENT);
+        plVideoView.setAVOptions(options);
+        plVideoView.setVideoPath(url);
+        plVideoView.start();
+
+    }
+
+    //----------------------播放器回调----------------------------
+    @Override
+    public void onCompletion() {
+        if (adDataList.size() > 1) {
+            current++;
+            current = current % adDataList.size();
+            openVideoFromUri(adDataList.get(current).getMsg());
+        } else {
+            //重新播放
+            plVideoView.start();
+        }
+    }
+    @Override
+    protected void onResume() {
+        super.onResume();
+        quest();
+        if(plVideoView.getVisibility()==View.VISIBLE){
+            plVideoView.start();
+        }
+        if(banner.getVisibility()==View.VISIBLE){
+            banner.start();
+        }
+    }
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if(plVideoView.getVisibility()==View.VISIBLE){
+            plVideoView.pause();
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if(banner.getVisibility()==View.VISIBLE){
+            banner.stop();
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (receiver != null) {
+            unregisterReceiver(receiver);
+        }
+        EventBus.getDefault().unregister(this);
+        plVideoView.stopPlayback();
+        banner.destroy();
+    }
+
 }

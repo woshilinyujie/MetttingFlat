@@ -1,8 +1,9 @@
 package com.example.meettingflat.bean;
 
+import java.io.Serializable;
 import java.util.List;
 
-public class MeetingBean {
+public class MeetingBean implements Serializable {
     private String code;
     private String errmsg;
     private List<EventsBean> events;
@@ -40,7 +41,7 @@ public class MeetingBean {
         this.requestId = requestId;
     }
 
-    public static class EventsBean {
+    public static class EventsBean implements Serializable {
         private List<AttendeesBean> attendees;
         private String createTime;
         private String description;
@@ -168,7 +169,7 @@ public class MeetingBean {
             this.seriesMasterId = seriesMasterId;
         }
 
-        public static class EndBean {
+        public static class EndBean implements Serializable {
             private String dateTime;
             private String timeZone;
 
@@ -189,7 +190,7 @@ public class MeetingBean {
             }
         }
 
-        public static class LocationBean {
+        public static class LocationBean implements Serializable {
             private String displayName;
 
             public String getDisplayName() {
@@ -201,7 +202,7 @@ public class MeetingBean {
             }
         }
 
-        public static class OnlineMeetingInfoBean {
+        public static class OnlineMeetingInfoBean implements Serializable {
             private String conferenceId;
             private ExtraInfoBean extraInfo;
             private String type;
@@ -239,7 +240,7 @@ public class MeetingBean {
                 this.url = url;
             }
 
-            public static class ExtraInfoBean {
+            public static class ExtraInfoBean implements Serializable{
                 private String roomCode;
 
                 public String getRoomCode() {
@@ -252,7 +253,7 @@ public class MeetingBean {
             }
         }
 
-        public static class OrganizerBean {
+        public static class OrganizerBean implements Serializable {
             private String displayName;
             private String id;
             private Boolean self;
@@ -282,7 +283,7 @@ public class MeetingBean {
             }
         }
 
-        public static class StartBean {
+        public static class StartBean implements Serializable {
             private String dateTime;
             private String timeZone;
 
@@ -303,7 +304,7 @@ public class MeetingBean {
             }
         }
 
-        public static class AttendeesBean {
+        public static class AttendeesBean implements Serializable {
             private String displayName;
             private String id;
             private String responseStatus;
