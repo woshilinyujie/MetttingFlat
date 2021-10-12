@@ -35,6 +35,7 @@ public class RbMqUtils {
     public boolean flag=true;
     public static String MQIP="rmq.wonlycloud.com";
     public boolean connect=true;
+    public boolean connect1=true;
 //    public String change="Device2Srv_ex";
 //    public String change1="Srv2Device_ex";
     public String change="Device2SrvTest_ex";
@@ -139,6 +140,13 @@ public class RbMqUtils {
            }
        });
        thread.start();
+       Thread thread1 = new Thread(new Runnable() {
+           @Override
+           public void run() {
+               subscribeONe();
+           }
+       });
+       thread1.start();
     }
 
 
@@ -167,6 +175,58 @@ public class RbMqUtils {
                 QueueingConsumer consumer = new QueueingConsumer(channel);
                 channel.basicConsume(q.getQueue(), true, consumer);
                 Log.e("mq----","创建Mq接收端成功");
+                while (flag) {
+                    isConnection ="+CGATT:1";
+                    //wait for the next message delivery and return it.
+                    QueueingConsumer.Delivery delivery = consumer.nextDelivery();
+                    String message = new String(delivery.getBody());
+
+
+                    //从message池中获取msg对象更高效
+                    Message msg = incomingMessageHandler.obtainMessage();
+                    Bundle bundle = new Bundle();
+                    bundle.putString("msg", message);
+                    msg.setData(bundle);
+                    Log.e("服务器-----ThreadName", Thread.currentThread().getName()+"----"+q.getQueue().toString());
+                    incomingMessageHandler.sendMessage(msg);
+                }
+            }  catch (Exception e1) {
+                Log.e("mq----","接收端报错"+ e1.toString());
+                if(e1.toString().contains("com.rabbitmq.client")||e1.toString().contains("java.util.concurrent.TimeoutException")||e1.toString().contains("java.net")) {
+                    isConnection ="+CGATT:0";
+                }
+                try {
+                    Thread.sleep(5000);
+                } catch (InterruptedException e) {
+                }
+            }
+        }
+    }
+    public void subscribeONe(){
+
+        while (connect1){
+            try {
+                //使用之前的设置，建立连接
+                Log.e("mq----","开始创建无key的mq接收端");
+                connection = factory.newConnection();
+                //创建一个通道
+                Channel channel = connection.createChannel();
+                //一次只发送一个，处理完成一个再获取z下一个
+                channel.basicQos(1);
+
+                // 声明交换机类型
+                channel.exchangeDeclare(change1, "direct", true);
+                // 声明队列（持久的、非独占的、连接断开后队列会自动删除）
+                Map<String, Object> mapAndroid = new HashMap<String, Object>();
+                mapAndroid.put("x-expires",10000);
+                AMQP.Queue.DeclareOk q = channel.queueDeclare("", true, false, true,mapAndroid);// 声明共享队列
+                // 根据路由键将队列绑定到交换机上（需要知道交换机名称和路由键名称）
+                channel.queueBind(q.getQueue(), change1,"");
+
+                //创建消费者
+                QueueingConsumer consumer = new QueueingConsumer(channel);
+                channel.basicConsume(q.getQueue(), true, consumer);
+                Log.e("mq----","创建无key的Mq接收端成功");
                 while (flag) {
                     isConnection ="+CGATT:1";
                     //wait for the next message delivery and return it.

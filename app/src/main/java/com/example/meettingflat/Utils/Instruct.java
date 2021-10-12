@@ -19,6 +19,7 @@ public class Instruct {
       public static final int SHOWTOAST=1;//
       public static final int PUSHLINK=2;//
       public static final int REFRESHTIME=4;//
+      public static final int UPDATE=5;//
       public static final int DIALOG=3;//
       public static String SENDBULECARD="+CPWBLEADD:";//发送添加蓝牙指令
       public static String DELETEBULECARD="+CPWBLEDEL:";//发送添加蓝牙指令

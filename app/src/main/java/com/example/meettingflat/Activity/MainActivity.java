@@ -5,7 +5,9 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -17,11 +19,13 @@ import android.os.Handler;
 import android.os.Message;
 import android.text.TextUtils;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -37,6 +41,7 @@ import com.example.meettingflat.Utils.Instruct;
 import com.example.meettingflat.Utils.RbMqUtils;
 import com.example.meettingflat.Utils.SPUtil;
 import com.example.meettingflat.Utils.SerialPortUtil;
+import com.example.meettingflat.Utils.VersionUtils;
 import com.example.meettingflat.Utils.WaitDialogTime;
 import com.example.meettingflat.base.MAPI;
 import com.example.meettingflat.bean.AdBean;
@@ -46,11 +51,21 @@ import com.example.meettingflat.bean.MainMsgBean;
 import com.example.meettingflat.bean.MeetingBean;
 import com.example.meettingflat.bean.PermissionBean;
 import com.example.meettingflat.bean.SetMsgBean;
+import com.example.meettingflat.bean.UpdataJsonBean;
+import com.example.meettingflat.bean.UpdateAppBean;
 import com.example.meettingflat.bean.UserBean;
 import com.example.meettingflat.view.LockPasswordDialog;
+import com.google.gson.Gson;
+import com.lzy.okgo.OkGo;
+import com.lzy.okgo.callback.FileCallback;
+import com.lzy.okgo.callback.StringCallback;
+import com.lzy.okgo.model.Progress;
+import com.lzy.okgo.model.Response;
 import com.pili.pldroid.player.AVOptions;
 import com.pili.pldroid.player.PLOnCompletionListener;
 import com.pili.pldroid.player.widget.PLVideoView;
+import com.yanzhenjie.permission.Action;
+import com.yanzhenjie.permission.AndPermission;
 import com.youth.banner.Banner;
 import com.youth.banner.adapter.BannerImageAdapter;
 import com.youth.banner.holder.BannerImageHolder;
@@ -60,6 +75,11 @@ import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
@@ -114,6 +134,7 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
     private PLVideoView plVideoView;
     private ArrayList<AdBean.DataBean> adDataList;
     private int current = 0;
+    private AlertDialog mDownloadDialog;
     private Handler handler = new Handler() {
         @SuppressLint("HandlerLeak")
         @Override
@@ -137,9 +158,23 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
                     String s = dateUtils.dateFormat15(l);
                     systemTime.setText(s);
                     break;
+                case Instruct.UPDATE:
+                    if (mDownloadDialog != null) {
+                        mDownloadDialog.dismiss();
+                        mDownloadDialog = null;
+                    }
+                    OkGo.getInstance().cancelTag(MainActivity.this);
+                    requestPermission();
+                    handler.sendEmptyMessageDelayed(Instruct.UPDATE, 24 * 60 * 60 * 1000);
+                    break;
             }
         }
     };
+    private MAPI.CallAd callAdListener;
+    private int version;
+    private PrintWriter printWriter;
+    private ProgressBar mProgress;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -232,7 +267,6 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
         }).addBannerLifecycleObserver(this).setIndicator(new CircleIndicator(this));
 
 
-
         runnable = new Runnable() {
             @Override
             public void run() {
@@ -316,47 +350,47 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
                         case "9"://表示关门成功
                             break;
                         case "10"://密码错误
-                            {
-                                Message message = handler.obtainMessage();
-                                message.what = Instruct.SHOWTOAST;
-                                if (permissionList.size() == 0) {
-                                    if (dialogTime != null && dialogTime.isShowing())
-                                        dialogTime.dismiss();
-                                    message.obj = "无法开门，请检查开门权限";
-                                    handler.sendMessage(message);
-                                    return;
-                                }
-                                boolean passwordOpen = false;
-                                boolean timeOver = false;
-                                for (int x = 0; x < permissionList.size(); x++) {
-                                    if (permissionList.get(x).getPassWord() != null && permissionList.get(x).isHave()) {
-                                        timeOver = true;
-                                        String mPassword = permissionList.get(x).getPassWord().replaceAll(" ", "");
-                                        int length = mPassword.length();
-                                        String substring = mPassword.substring(length - 6, length);
-                                        if (substring.equals(currentPassword)) {
-                                            passwordOpen = true;
-                                            break;
-                                        }
-                                    }
-                                }
-
-                                if (passwordOpen) {
-                                    String s = Instruct.OPENDOOR + "\r\n";
-                                    serialPort.sendDate(s.getBytes());
-                                } else {
-                                    if (dialogTime != null && dialogTime.isShowing())
-                                        dialogTime.dismiss();
-                                    if (!timeOver) {
-                                        message.obj = "当前时间无法开门";
-                                    } else {
-                                        message.obj = "密码错误";
-                                    }
-                                    handler.sendMessage(message);
-                                }
-
+                        {
+                            Message message = handler.obtainMessage();
+                            message.what = Instruct.SHOWTOAST;
+                            if (permissionList.size() == 0) {
+                                if (dialogTime != null && dialogTime.isShowing())
+                                    dialogTime.dismiss();
+                                message.obj = "无法开门，请检查开门权限";
+                                handler.sendMessage(message);
+                                return;
                             }
-                            break;
+                            boolean passwordOpen = false;
+                            boolean timeOver = false;
+                            for (int x = 0; x < permissionList.size(); x++) {
+                                if (permissionList.get(x).getPassWord() != null && permissionList.get(x).isHave()) {
+                                    timeOver = true;
+                                    String mPassword = permissionList.get(x).getPassWord().replaceAll(" ", "");
+                                    int length = mPassword.length();
+                                    String substring = mPassword.substring(length - 6, length);
+                                    if (substring.equals(currentPassword)) {
+                                        passwordOpen = true;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if (passwordOpen) {
+                                String s = Instruct.OPENDOOR + "\r\n";
+                                serialPort.sendDate(s.getBytes());
+                            } else {
+                                if (dialogTime != null && dialogTime.isShowing())
+                                    dialogTime.dismiss();
+                                if (!timeOver) {
+                                    message.obj = "当前时间无法开门";
+                                } else {
+                                    message.obj = "密码错误";
+                                }
+                                handler.sendMessage(message);
+                            }
+
+                        }
+                        break;
                         case "13"://常开
                             if (dialogTime != null && dialogTime.isShowing())
                                 dialogTime.dismiss();
@@ -423,6 +457,8 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
             meetAddress.setText(mMeetAddress);
 
         }
+        requestPermission();
+        handler.sendEmptyMessageDelayed(Instruct.UPDATE, 24 * 60 * 60 * 1000);
         IntentFilter filter = new IntentFilter();
         filter.addAction(Intent.ACTION_TIME_TICK);
         registerReceiver(receiver, filter);
@@ -430,17 +466,17 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
         //权限重置
         String s = Instruct.DELETEBULECARD + "000000000000" + "\r\n";
         serialPort.sendDate(s.getBytes());
-        mapi.getAd(this, new MAPI.CallAd() {
+        callAdListener = new MAPI.CallAd() {
             @Override
             public void call(AdBean bean) {
                 adDataList = bean.getData();
-                if(adDataList!=null&&adDataList.size()>0){
-                    if(adDataList.get(0).getType().equals("mp4")){
+                if (adDataList != null && adDataList.size() > 0) {
+                    if (adDataList.get(0).getType().equals("mp4")) {
                         banner.setVisibility(View.GONE);
                         banner.stop();
                         plVideoView.setVisibility(View.VISIBLE);
                         openVideoFromUri(bean.getData().get(0).getMsg());
-                    }else{
+                    } else {
                         //轮播图
                         plVideoView.setVisibility(View.GONE);
                         plVideoView.pause();
@@ -451,7 +487,8 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
                     }
                 }
             }
-        });
+        };
+        mapi.getAd(this, callAdListener);
     }
 
     /**
@@ -480,6 +517,8 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
                 } else if (msg.contains("normallyOpen:cancel")) {
                     String s = Instruct.CANCELNORMALLYOPEN1 + "\r\n";
                     serialPort.sendDate(s.getBytes());
+                } else if (msg.contains("refresh")) {
+                    mapi.getAd(MainActivity.this, callAdListener);
                 }
             }
         });
@@ -565,7 +604,11 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
             meetState1.setVisibility(View.GONE);
             meetStateRl.setBackgroundResource(R.mipmap.wait);
             meetTime.setVisibility(View.GONE);
-            meetName.setText("待启用~");
+            if (meetAddress.getText().toString().equals("请设置会议室名称")) {
+                meetName.setText("待启用~");
+            } else {
+                meetName.setText("今日暂无会议哦~");
+            }
             //删除或添加权限
             sendOrDeletePermission();
             return;
@@ -611,7 +654,11 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
             meetState1.setVisibility(View.GONE);
             meetStateRl.setBackgroundResource(R.mipmap.wait);
             meetTime.setVisibility(View.GONE);
-            meetName.setText("待启用~");
+            if (meetAddress.getText().toString().equals("请设置会议室名称")) {
+                meetName.setText("待启用~");
+            } else {
+                meetName.setText("今日暂无会议哦~");
+            }
             //删除或添加权限
             sendOrDeletePermission();
             return;
@@ -624,11 +671,11 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
         if (beginTime > time) {//还没开始
 //            if ((beginTime - time) > 15 * 60 * 1000) {
             //空闲中
-                meetState.setText("空闲");
-                meetState.setBackgroundResource(R.drawable.half_circle);
-                meetState1.setTextColor(Color.parseColor("#0fb89a"));
-                meetState1.setText("暂无会议，会议室空闲中~");
-                //通知后板移除
+            meetState.setText("空闲");
+            meetState.setBackgroundResource(R.drawable.half_circle);
+            meetState1.setTextColor(Color.parseColor("#0fb89a"));
+            meetState1.setText("暂无会议，会议室空闲中~");
+            //通知后板移除
 //            } else {
 //                //准备中
 //                meetState.setText("即将开会");
@@ -738,7 +785,6 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
     }
 
 
-
     //---------------------eventBus----------------
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onMessageEvent(MainMsgBean msgBean) {
@@ -753,7 +799,7 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
     }
 
     private void openVideoFromUri(String url) {
-        if (options == null){
+        if (options == null) {
             options = new AVOptions();
             plVideoView.setOnCompletionListener(this);
         }
@@ -777,21 +823,23 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
             plVideoView.start();
         }
     }
+
     @Override
     protected void onResume() {
         super.onResume();
         quest();
-        if(plVideoView.getVisibility()==View.VISIBLE){
+        if (plVideoView.getVisibility() == View.VISIBLE) {
             plVideoView.start();
         }
-        if(banner.getVisibility()==View.VISIBLE){
+        if (banner.getVisibility() == View.VISIBLE) {
             banner.start();
         }
     }
+
     @Override
     protected void onPause() {
         super.onPause();
-        if(plVideoView.getVisibility()==View.VISIBLE){
+        if (plVideoView.getVisibility() == View.VISIBLE) {
             plVideoView.pause();
         }
     }
@@ -799,7 +847,7 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
     @Override
     protected void onStop() {
         super.onStop();
-        if(banner.getVisibility()==View.VISIBLE){
+        if (banner.getVisibility() == View.VISIBLE) {
             banner.stop();
         }
     }
@@ -807,12 +855,195 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        handler.removeMessages(Instruct.UPDATE);
         if (receiver != null) {
             unregisterReceiver(receiver);
         }
         EventBus.getDefault().unregister(this);
         plVideoView.stopPlayback();
         banner.destroy();
+    }
+
+    //------------------------------------下载-------------------------------------
+
+
+    private void requestPermission() {
+        AndPermission.with(this)
+                .runtime()
+                .permission(
+                        Manifest.permission.ACCESS_NOTIFICATION_POLICY,
+                        Manifest.permission.RECORD_AUDIO,
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.CHANGE_WIFI_MULTICAST_STATE,
+                        Manifest.permission.ACCESS_COARSE_LOCATION,
+                        Manifest.permission.ACCESS_NETWORK_STATE,
+                        Manifest.permission.READ_PHONE_STATE,
+                        Manifest.permission.ACCESS_WIFI_STATE,
+                        Manifest.permission.READ_EXTERNAL_STORAGE,
+                        Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                .onGranted(new Action<List<String>>() {
+                    @Override
+                    public void onAction(List<String> data) {
+                        checkUpdate();
+                    }
+                })
+                .onDenied(new Action<List<String>>() {
+                    @Override
+                    public void onAction(List<String> data) {
+                        checkUpdate();
+                    }
+                })
+                .start();
+    }
+
+    protected void checkUpdate() {
+        version = VersionUtils.getVersionCode(this);
+        requestAppUpdate(version, new DataRequestListener<UpdateAppBean>() {
+            @Override
+            public void success(UpdateAppBean data) {
+                downloadApp(data.getPUS().getBody().getUrl());
+            }
+
+            @Override
+            public void fail(String msg) {
+
+            }
+        });
+    }
+
+    private void requestAppUpdate(int version, final DataRequestListener<UpdateAppBean> listener) {
+        UpdataJsonBean updataJsonBean = new UpdataJsonBean();
+        UpdataJsonBean.PUSBean pusBean = new UpdataJsonBean.PUSBean();
+        UpdataJsonBean.PUSBean.BodyBean bodyBean = new UpdataJsonBean.PUSBean.BodyBean();
+        UpdataJsonBean.PUSBean.HeaderBean headerBean = new UpdataJsonBean.PUSBean.HeaderBean();
+
+        bodyBean.setToken("");
+        bodyBean.setVendor_name("general");
+        bodyBean.setPlatform("android");
+
+        bodyBean.setEndpoint_type("WL025S1-M");
+
+        bodyBean.setCurrent_version(version + "");
+
+        headerBean.setApi_version("1.0");
+        headerBean.setMessage_type("MSG_PRODUCT_UPGRADE_DOWN_REQ");
+        headerBean.setSeq_id("1");
+
+        pusBean.setBody(bodyBean);
+        pusBean.setHeader(headerBean);
+        updataJsonBean.setPUS(pusBean);
+
+        String s = GsonUtils.GsonString(updataJsonBean);
+        String path = "";
+        path = "https://pus.wonlycloud.com:10400";
+        OkGo.<String>post(path).upJson(s).execute(new StringCallback() {
+            @Override
+            public void onSuccess(Response<String> response) {
+                String s = response.body();
+                Gson gson = new Gson();
+                try {
+                    UpdateAppBean updateAppBean = gson.fromJson(s, UpdateAppBean.class);
+                    if (Integer.parseInt(updateAppBean.getPUS().getBody().getNew_version()) > version) {
+                        listener.success(updateAppBean);
+                    }
+                } catch (Exception e) {
+                    Log.e("升级接口报错", e.toString());
+                }
+            }
+
+            @Override
+            public void onError(Response<String> response) {
+                listener.fail("服务器连接失败");
+            }
+        });
+    }
+
+
+    //下载apk文件并跳转(第二次请求，get)
+    private void downloadApp(String apk_url) {
+        OkGo.<File>get(apk_url).tag(this).execute(new FileCallback() {
+            @Override
+            public void onError(Response<File> response) {
+                if (mDownloadDialog != null) {
+                    mDownloadDialog.dismiss();
+                    mDownloadDialog = null;
+                }
+            }
+
+            @Override
+            public void onSuccess(Response<File> response) {
+                if (mDownloadDialog != null && mDownloadDialog.isShowing()) {
+                    mDownloadDialog.dismiss();
+                    mDownloadDialog = null;
+                }
+                String filePath = response.body().getAbsolutePath();
+                boolean b = installApp(filePath);
+            }
+
+            @Override
+            public void downloadProgress(Progress progress) {
+                if (mDownloadDialog == null) {
+                    // 构造软件下载对话框
+                    AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+                    builder.setTitle("正在更新");
+                    // 给下载对话框增加进度条
+                    final LayoutInflater inflater = LayoutInflater.from(MainActivity.this);
+                    View v = inflater.inflate(R.layout.item_progress, null);
+                    mProgress = (ProgressBar) v.findViewById(R.id.update_progress);
+                    builder.setView(v);
+                    mDownloadDialog = builder.create();
+                    mDownloadDialog.show();
+                }
+                mProgress.setProgress((int) (progress.fraction * 100));
+            }
+        });
+    }
+
+    public boolean installApp(String apkPath) {
+        Process process = null;
+        BufferedReader successResult = null;
+        BufferedReader errorResult = null;
+        StringBuilder successMsg = new StringBuilder();
+        StringBuilder errorMsg = new StringBuilder();
+        try {
+            process = new ProcessBuilder("pm", "install", "-r", "-i", "com.wl.wlflatproject", apkPath).start();
+            successResult = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            errorResult = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+            String s;
+            while ((s = successResult.readLine()) != null) {
+                successMsg.append(s);
+            }
+            while ((s = errorResult.readLine()) != null) {
+                errorMsg.append(s);
+            }
+        } catch (Exception e) {
+            Log.e("静默安装报错", e.toString());
+        } finally {
+            try {
+                if (successResult != null) {
+                    successResult.close();
+                }
+                if (errorResult != null) {
+                    errorResult.close();
+                }
+            } catch (Exception e) {
+
+            }
+            if (process != null) {
+                process.destroy();
+            }
+        }
+        Log.e("result", "" + errorMsg.toString());
+        return successMsg.toString().equalsIgnoreCase("success");
+    }
+
+
+    public interface DataRequestListener<T> {
+        //请求成功
+        void success(T data);
+
+        //请求失败
+        void fail(String msg);
     }
 
 }
