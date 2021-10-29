@@ -331,7 +331,7 @@ public class MAPI {
 
     public void getAd(Context context,  CallAd call) {
 //        String url = ip +getAd;
-        String url = "http://120.24.254.13:10301/api/meeting/av";
+        String url = "http://118.31.32.134:10301/api/meeting/av";
         OkGo.<String>get(url)
                 .tag(context)
                 .cacheMode(CacheMode.DEFAULT)

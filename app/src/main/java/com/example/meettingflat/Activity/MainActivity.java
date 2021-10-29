@@ -145,7 +145,7 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
                     Toast.makeText(MainActivity.this, (String) msg.obj, Toast.LENGTH_SHORT).show();
                     break;
                 case Instruct.DIALOG:
-                    if (dialogTime != null && dialogTime.isShowing()) {
+                    if (dialogTime != null) {
                         dialogTime.dismiss();
                     }
                     break;
@@ -319,7 +319,7 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
                     switch (split[1]) {
                         case "8"://表示密码开门成功
                         {
-                            if (dialogTime != null && dialogTime.isShowing())
+                            if (dialogTime != null)
                                 dialogTime.dismiss();
                             Message message = handler.obtainMessage();
                             message.what = 1;
@@ -330,7 +330,7 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
                         break;
                         case "11"://表示无密码开门成功
                         {
-                            if (dialogTime != null && dialogTime.isShowing())
+                            if (dialogTime != null)
                                 dialogTime.dismiss();
                             Message message = handler.obtainMessage();
                             message.what = Instruct.PUSHLINK;
@@ -339,7 +339,7 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
                         }
                         case "12"://服务器通知开门成功
                         {
-                            if (dialogTime != null && dialogTime.isShowing())
+                            if (dialogTime != null)
                                 dialogTime.dismiss();
                             Message message = handler.obtainMessage();
                             message.what = Instruct.SHOWTOAST;
@@ -351,10 +351,11 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
                             break;
                         case "10"://密码错误
                         {
+                            Log.e("串口返回10", "permissionListSize" + permissionList.size());
                             Message message = handler.obtainMessage();
                             message.what = Instruct.SHOWTOAST;
                             if (permissionList.size() == 0) {
-                                if (dialogTime != null && dialogTime.isShowing())
+                                if (dialogTime != null)
                                     dialogTime.dismiss();
                                 message.obj = "无法开门，请检查开门权限";
                                 handler.sendMessage(message);
@@ -363,6 +364,7 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
                             boolean passwordOpen = false;
                             boolean timeOver = false;
                             for (int x = 0; x < permissionList.size(); x++) {
+                                Log.e("串口返回10", "permissionList:" + permissionList.toString());
                                 if (permissionList.get(x).getPassWord() != null && permissionList.get(x).isHave()) {
                                     timeOver = true;
                                     String mPassword = permissionList.get(x).getPassWord().replaceAll(" ", "");
@@ -379,7 +381,7 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
                                 String s = Instruct.OPENDOOR + "\r\n";
                                 serialPort.sendDate(s.getBytes());
                             } else {
-                                if (dialogTime != null && dialogTime.isShowing())
+                                if (dialogTime != null)
                                     dialogTime.dismiss();
                                 if (!timeOver) {
                                     message.obj = "当前时间无法开门";
@@ -392,7 +394,7 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
                         }
                         break;
                         case "13"://常开
-                            if (dialogTime != null && dialogTime.isShowing())
+                            if (dialogTime != null)
                                 dialogTime.dismiss();
                             EventBus.getDefault().post(new SetMsgBean(Instruct.NORMALLYOPEN));
                             //通知 服务器联动
@@ -400,13 +402,13 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
                             normallyOPenFlag = 1;
                             break;
                         case "14"://服务器常开
-                            if (dialogTime != null && dialogTime.isShowing())
+                            if (dialogTime != null)
                                 dialogTime.dismiss();
                             EventBus.getDefault().post(new SetMsgBean(Instruct.NORMALLYOPEN1));
                             normallyOPenFlag = 1;
                             break;
                         case "15"://取消常开
-                            if (dialogTime != null && dialogTime.isShowing())
+                            if (dialogTime != null)
                                 dialogTime.dismiss();
                             EventBus.getDefault().post(new SetMsgBean(Instruct.CANCELNORMALLYOPEN));
                             //通知 服务器联动
@@ -414,7 +416,7 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
                             normallyOPenFlag = 2;
                             break;
                         case "16"://服务器取消常开
-                            if (dialogTime != null && dialogTime.isShowing())
+                            if (dialogTime != null)
                                 dialogTime.dismiss();
                             EventBus.getDefault().post(new SetMsgBean(Instruct.CANCELNORMALLYOPEN1));
                             normallyOPenFlag = 2;
@@ -441,6 +443,12 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
     }
 
     private void initData() {
+        int select = SPUtil.getInstance(this).getSettingParam("doorSelect", 0);
+        if(select==0){
+            open.setVisibility(View.VISIBLE);
+        }else{
+            open.setVisibility(View.GONE);
+        }
         //获取硬件数据
         handler.sendEmptyMessage(Instruct.REFRESHTIME);
         serialPort.sendDate((Instruct.DATA + "\r\n").getBytes());
@@ -488,7 +496,6 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
                 }
             }
         };
-        mapi.getAd(this, callAdListener);
     }
 
     /**
@@ -702,6 +709,7 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
 
 
     public void addPermission(List<MeetingBean.EventsBean> events, int flag, long beginTime, long lastTime) {
+        Log.e("添加权限", "打印events：" + events.toString());
         if (userBean != null && userBean.getData().size() > 0) {
             for (int x = 0; x < events.get(flag).getAttendees().size(); x++) {
                 for (int y = 0; y < userBean.getData().size(); y++) {
@@ -795,6 +803,15 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
             case Instruct.CANCELNORMALLYOPEN://取消常开
                 serialPort.sendDate((Instruct.CANCELNORMALLYOPEN + "\r\n").getBytes());
                 break;
+            case Instruct.SELECTDOOR://子门母门  切换
+                if (msgBean.getFlag() == 0) {//母门
+                    open.setVisibility(View.VISIBLE);
+                    SPUtil.getInstance(this).setSettingParam("doorSelect",0);
+                } else {//子门
+                    open.setVisibility(View.GONE);
+                    SPUtil.getInstance(this).setSettingParam("doorSelect",1);
+                }
+                break;
         }
     }
 
@@ -828,6 +845,9 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
     protected void onResume() {
         super.onResume();
         quest();
+        if (!plVideoView.isPlaying()) {
+            mapi.getAd(MainActivity.this, callAdListener);
+        }
         if (plVideoView.getVisibility() == View.VISIBLE) {
             plVideoView.start();
         }

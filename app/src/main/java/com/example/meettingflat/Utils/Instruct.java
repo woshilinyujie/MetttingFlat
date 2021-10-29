@@ -12,6 +12,7 @@ public class Instruct {
 
       public static final String CANCELNORMALLYOPEN="+CAWAYOPEN:0";//取消常开
       public static final String CANCELNORMALLYOPEN1="+CCAWAY:0";//务器通知取消常开
+      public static final String SELECTDOOR="SELECTDOOR";//务器通知取消常开
 
       public static final String DATA="+DATATOPAD";//硬件数据
 
