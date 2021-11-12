@@ -149,13 +149,32 @@
     </LinearLayout>
 
 
-<Button
-    android:id="@+id/open"
-    android:textStyle="bold"
-    android:textSize="@dimen/sp_16"
-    android:text="开门"
-    android:layout_marginTop="@dimen/dp_30"
-    android:background="@drawable/shape_radius_4_1950d8"
-    android:layout_width="match_parent"
-    android:layout_height="@dimen/dp_50"/>
+    <LinearLayout
+        android:id="@+id/open_ll"
+        android:layout_marginTop="@dimen/dp_30"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/dp_50">
+        <Button
+            android:layout_weight="1"
+            android:id="@+id/open"
+            android:textStyle="bold"
+            android:textSize="@dimen/sp_16"
+            android:text="开门"
+            android:background="@drawable/shape_radius_4_1950d8"
+            android:layout_width="0dp"
+            android:layout_marginRight="@dimen/dp_5"
+            android:layout_height="@dimen/dp_50"/>
+        <Button
+            android:layout_marginLeft="@dimen/dp_5"
+            android:layout_weight="1"
+            android:id="@+id/door_bell"
+            android:textStyle="bold"
+            android:textSize="@dimen/sp_16"
+            android:text="门铃"
+            android:background="@drawable/shape_radius_4_1950d8"
+            android:layout_width="0dp"
+            android:layout_height="@dimen/dp_50"/>
+
+
+    </LinearLayout>
 </LinearLayout>

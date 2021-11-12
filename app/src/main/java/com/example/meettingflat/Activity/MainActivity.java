@@ -13,6 +13,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.Color;
+import android.media.MediaPlayer;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -45,6 +46,7 @@ import com.example.meettingflat.Utils.VersionUtils;
 import com.example.meettingflat.Utils.WaitDialogTime;
 import com.example.meettingflat.base.MAPI;
 import com.example.meettingflat.bean.AdBean;
+import com.example.meettingflat.bean.DoorBean;
 import com.example.meettingflat.bean.ErrBean;
 import com.example.meettingflat.bean.GetLinkBean;
 import com.example.meettingflat.bean.MainMsgBean;
@@ -78,6 +80,7 @@ import org.greenrobot.eventbus.ThreadMode;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -118,7 +121,9 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
     private TextView meetState1;
     private TextView meetState;
     private Button open;
+    private Button doorBell;
     private ImageView next;
+    private LinearLayout openLl;
     private TextView meetAddress;
     private UserBean userBean;
     private int normallyOPenFlag;
@@ -167,6 +172,32 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
                     requestPermission();
                     handler.sendEmptyMessageDelayed(Instruct.UPDATE, 24 * 60 * 60 * 1000);
                     break;
+                case Instruct.DOORBELL://门铃延迟
+                    mediaplayer.stop();
+                    try {
+                        mediaplayer.prepare();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    doorBell.setEnabled(true);
+                    break;
+                case Instruct.DOORBELLPLAY://门铃播放
+                    String id=(String)msg.obj;
+                    doorBell.setEnabled(false);
+                    mediaplayer.setLooping(true);//设置为循环播放
+                    mediaplayer.start();
+                    DoorBean doorBean=new DoorBean();
+                    doorBean.setAck(0);
+                    doorBean.setCmd(0x1110);
+                    doorBean.setDevType("WL025S1");
+                    doorBean.setDevId(id);
+                    doorBean.setSeqId(1);
+                    doorBean.setTime(System.currentTimeMillis());
+                    doorBean.setVendor("general");
+                    String json = GsonUtils.GsonString(doorBean);
+                    rbmq.pushMsg(json);
+                    handler.sendEmptyMessageDelayed(Instruct.DOORBELL,5000);
+                    break;
             }
         }
     };
@@ -174,6 +205,7 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
     private int version;
     private PrintWriter printWriter;
     private ProgressBar mProgress;
+    private MediaPlayer mediaplayer;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -201,6 +233,8 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
         meetAddressLl = findViewById(R.id.meet_address_ll);
         banner = findViewById(R.id.banner);
         plVideoView = findViewById(R.id.video);
+        doorBell = findViewById(R.id.door_bell);
+        openLl = findViewById(R.id.open_ll);
     }
 
     private void initListener() {
@@ -228,6 +262,13 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
             @Override
             public void onClick(View v) {
                 startActivityForResult(new Intent(MainActivity.this, MeetSelectActivity.class), MEETSELECTACTIVITYCODE);
+            }
+        });
+
+        doorBell.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                serialPort.sendDate((Instruct.GETID + "\r\n").getBytes());//先去拿id
             }
         });
 
@@ -437,20 +478,31 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
                             }
                             break;
                     }
+                }else if (data.contains("AT+DEID=")) {
+                    String[] split = data.split("=");
+                    if(!TextUtils.isEmpty(split[1])){
+                        Message message = handler.obtainMessage();
+                        message.what=Instruct.DOORBELLPLAY;
+                        message.obj=split[1];
+                        handler.sendMessage(message);
+                    }else{
+                        Log.e("后板门id获取----",split[1]+"");
+                    }
                 }
             }
         });
     }
 
     private void initData() {
+        mediaplayer = MediaPlayer.create(this, R.raw.alarm);
         int select = SPUtil.getInstance(this).getSettingParam("doorSelect", 0);
         if(select==0){
-            open.setVisibility(View.VISIBLE);
+            openLl.setVisibility(View.VISIBLE);
         }else{
-            open.setVisibility(View.GONE);
+            openLl.setVisibility(View.GONE);
         }
-        //获取硬件数据
         handler.sendEmptyMessage(Instruct.REFRESHTIME);
+        //获取硬件数据
         serialPort.sendDate((Instruct.DATA + "\r\n").getBytes());
         EventBus.getDefault().register(this);
         doorID = DeviceUtils.getSerialNumber(this);
@@ -805,10 +857,10 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
                 break;
             case Instruct.SELECTDOOR://子门母门  切换
                 if (msgBean.getFlag() == 0) {//母门
-                    open.setVisibility(View.VISIBLE);
+                    openLl.setVisibility(View.VISIBLE);
                     SPUtil.getInstance(this).setSettingParam("doorSelect",0);
                 } else {//子门
-                    open.setVisibility(View.GONE);
+                    openLl.setVisibility(View.GONE);
                     SPUtil.getInstance(this).setSettingParam("doorSelect",1);
                 }
                 break;
@@ -875,6 +927,8 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        mediaplayer.stop();
+        mediaplayer.release();
         handler.removeMessages(Instruct.UPDATE);
         if (receiver != null) {
             unregisterReceiver(receiver);

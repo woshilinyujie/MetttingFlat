@@ -38,7 +38,7 @@ public class RbMqUtils {
     public boolean connect1=true;
 //    public String change="Device2Srv_ex";
 //    public String change1="Srv2Device_ex";
-    public String change="Device2SrvTest_ex";
+    public String change="Device2SrvMns_ex";
     public String change1="Srv2DeviceTest_ex";
     public void RbMqUtils() {
 
@@ -78,7 +78,7 @@ public class RbMqUtils {
                 ch.confirmSelect();
                 // 发布消息
                 ch.exchangeDeclare(change, "fanout", true);
-                ch.queueBind("Device2Srv_queue", change, "");
+                ch.queueBind("Device2SrvMns_queue", change, "");
                 Log.e("mq---","创建mq发送端成功");
                 while (flag) {
                     String message = queue.takeFirst();
@@ -254,6 +254,8 @@ public class RbMqUtils {
             }
         }
     }
+
+
 
     public void mClose(boolean connect){
        this.connect=connect;
