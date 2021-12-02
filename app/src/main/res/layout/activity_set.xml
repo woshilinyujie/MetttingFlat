@@ -107,6 +107,34 @@
                     android:layout_alignParentBottom="true"
                     android:background="#56616c" />
             </RelativeLayout>
+            <RelativeLayout
+                android:id="@+id/door_select"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/dp_60"
+                android:paddingLeft="@dimen/dp_11"
+                android:paddingRight="@dimen/dp_11">
+
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerVertical="true"
+                    android:text="选择门类型"
+                    android:textColor="#ffffff"
+                    android:textSize="@dimen/sp_16" />
+
+                <ImageView
+                    android:background="@mipmap/right"
+                    android:layout_alignParentRight="true"
+                    android:layout_centerVertical="true"
+                    android:layout_width="@dimen/dp_10"
+                    android:layout_height="@dimen/dp_18"/>
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/dp_1"
+                    android:layout_alignParentBottom="true"
+                    android:background="#56616c" />
+            </RelativeLayout>
         </LinearLayout>
 
     </ScrollView>

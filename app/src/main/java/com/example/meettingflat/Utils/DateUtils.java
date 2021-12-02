@@ -59,31 +59,31 @@ public class DateUtils {
         Calendar calen = Calendar.getInstance();
         calen.setTimeInMillis(time);
         int week = calen.get(Calendar.DAY_OF_WEEK);
-        String result = isCn ? "星期一" : "Monday";
+        String result = isCn ? "周一" : "Monday";
         switch (week) {
             case Calendar.SUNDAY:
-                result = isCn ? "星期日" : "Sunday";
+                result = isCn ? "周日" : "Sunday";
                 break;
             case Calendar.MONDAY:
-                result = isCn ? "星期一" : "Monday";
+                result = isCn ? "周一" : "Monday";
                 break;
             case Calendar.TUESDAY:
-                result = isCn ? "星期二" : "Tuesday";
+                result = isCn ? "周二" : "Tuesday";
                 break;
             case Calendar.WEDNESDAY:
-                result = isCn ? "星期三" : "Wednesday";
+                result = isCn ? "周三" : "Wednesday";
                 break;
             case Calendar.THURSDAY:
-                result = isCn ? "星期四" : "Thursday";
+                result = isCn ? "周四" : "Thursday";
                 break;
             case Calendar.FRIDAY:
-                result = isCn ? "星期五" : "Friday";
+                result = isCn ? "周五" : "Friday";
                 break;
             case Calendar.SATURDAY:
-                result = isCn ? "星期六" : "Saturday";
+                result = isCn ? "周六" : "Saturday";
                 break;
             default:
-                result = isCn ? "星期一" : "Monday";
+                result = isCn ? "周一" : "Monday";
                 break;
         }
         return result;
@@ -248,6 +248,15 @@ public class DateUtils {
         return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
                 .format(new Date(time));
     }
+    /**
+     * @param time
+     * @return
+     * @描述: 2017-02-23 06:26:12
+     */
+    public String dateFormat15(long time) {
+        return new SimpleDateFormat("HH:mm   MM月dd日", Locale.getDefault())
+                .format(new Date(time));
+    }
 
     /**
      * @param time
@@ -301,6 +310,11 @@ public class DateUtils {
     @RequiresApi(api = Build.VERSION_CODES.O)
     public String dateFormat8(long time) {
         return new SimpleDateFormat("HH:mm", Locale.getDefault())
+                .format(new Date(time));
+    }
+    @RequiresApi(api = Build.VERSION_CODES.O)
+    public String dateFormat20(long time) {
+        return new SimpleDateFormat("yyyy年MM月dd   HH:mm", Locale.getDefault())
                 .format(new Date(time));
     }
 
@@ -554,4 +568,12 @@ public class DateUtils {
         return true;
 
     }
+
+    //毫秒转小时
+    public  String formatDuring(long mss) {
+        long hours = (mss % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60);
+        long minutes = (mss % (1000 * 60 * 60)) / (1000 * 60);
+        return hours + " 小时 " + minutes + " 分";
+    }
+
 }

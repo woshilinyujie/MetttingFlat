@@ -65,7 +65,11 @@ public class MeetSelectActivity extends AppCompatActivity {
             public void onClick(View v) {
                 String s = meetName.getText().toString();
                 if(TextUtils.isEmpty(s)){
-                    Toast.makeText(MeetSelectActivity.this,"会议门名称不能为空",Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MeetSelectActivity.this,"会议室名称不能为空",Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                if(s.length()>8){
+                    Toast.makeText(MeetSelectActivity.this,"会议室名称不能超出8个字",Toast.LENGTH_SHORT).show();
                     return;
                 }
                 if(waitDialogTime==null)

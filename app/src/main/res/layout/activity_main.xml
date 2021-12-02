@@ -9,103 +9,172 @@
     android:orientation="vertical"
     android:paddingLeft="@dimen/dp_15"
     android:paddingRight="@dimen/dp_15">
-    <RelativeLayout
+
+
+<RelativeLayout
+    android:layout_marginTop="@dimen/dp_25"
+    android:background="@drawable/shape_radius_8_1a252f"
+    android:layout_width="match_parent"
+    android:layout_height="@dimen/dp_90">
+    <ImageView
+        android:layout_marginLeft="@dimen/dp_10"
+        android:layout_marginTop="@dimen/dp_10"
+        android:id="@+id/setting"
+        android:background="@mipmap/setting"
+        android:layout_width="@dimen/dp_20"
+        android:layout_height="@dimen/dp_20"/>
+    <LinearLayout
+        android:layout_marginRight="@dimen/dp_50"
+        android:layout_marginLeft="@dimen/dp_50"
+        android:id="@+id/meet_address_ll"
+        android:gravity="center_vertical"
+        android:orientation="vertical"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/dp_33"
-    >
+        android:layout_height="match_parent">
 
-        <ImageView
-            android:id="@+id/setting"
-            android:layout_centerVertical="true"
-            android:background="@mipmap/setting"
-            android:layout_width="@dimen/dp_20"
-            android:layout_height="@dimen/dp_20"/>
-        <ImageView
-            android:id="@+id/next"
-            android:layout_width="@dimen/dp_25"
-            android:layout_height="@dimen/dp_25"
-            android:layout_alignParentRight="true"
-            android:layout_centerVertical="true"
-            android:background="@mipmap/enter" />
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+            <TextView
+                android:layout_centerInParent="true"
+                android:id="@+id/meet_address"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="请设置会议室名称"
+                android:textColor="#d0d1d2"
+                android:textSize="@dimen/sp_22" />
 
+            <ImageView
+                android:id="@+id/next"
+                android:layout_toRightOf="@id/meet_address"
+                android:layout_centerVertical="true"
+                android:background="@mipmap/edit"
+                android:layout_marginLeft="@dimen/dp_10"
+                android:layout_width="@dimen/dp_14"
+                android:layout_height="@dimen/dp_18"/>
+
+
+        </RelativeLayout>
         <TextView
-            android:id="@+id/meet_address"
+            android:id="@+id/system_time"
+            android:layout_marginTop="@dimen/dp_5"
+            android:layout_gravity="center_horizontal"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_centerInParent="true"
-            android:text="会议室"
-            android:textColor="#d0d1d2"
-            android:textSize="@dimen/sp_19" />
-    </RelativeLayout>
+            android:text="00:00:00"
+            android:textColor="#999999"
+            android:textSize="@dimen/sp_14" />
+    </LinearLayout>
 
+    <TextView
+        android:visibility="gone"
+        android:id="@+id/meet_state"
+        android:textSize="@dimen/sp_11"
+        android:gravity="center"
+        android:textColor="#ffffff"
+        android:text="状态"
+        android:background="@drawable/half_circle"
+        android:layout_alignParentRight="true"
+        android:layout_width="@dimen/dp_45"
+        android:layout_height="@dimen/dp_20"/>
 
+</RelativeLayout>
 
+<androidx.cardview.widget.CardView
+    app:cardCornerRadius="@dimen/dp_8"
+    android:layout_width="match_parent"
+    android:layout_height="@dimen/dp_180"
+    android:layout_marginTop="@dimen/dp_15">
+    <FrameLayout
 
-
-    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="@dimen/dp_120"
-        android:layout_marginTop="@dimen/dp_27"
-        android:background="@drawable/shape_radius_8_1a252f"
+        android:layout_height="match_parent"
+        android:background="@mipmap/binner"
         android:gravity="center"
         android:orientation="vertical">
+        <com.youth.banner.Banner
+            app:banner_indicator_radius="0dp"
+            android:visibility="gone"
+            android:id="@+id/banner"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+        <com.pili.pldroid.player.widget.PLVideoView
+            android:visibility="visible"
+            android:id="@+id/video"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+    </FrameLayout>
+</androidx.cardview.widget.CardView>
+
+    <LinearLayout
+        android:orientation="vertical"
+        android:gravity="center"
+        android:id="@+id/meet_state_rl"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/dp_115"
+        android:layout_marginTop="@dimen/dp_20"
+        android:background="@mipmap/wait">
+
         <TextView
-            android:maxLines="1"
-            android:ellipsize="end"
-            android:maxEms="10"
             android:id="@+id/meet_name"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="会议名"
+            android:layout_centerInParent="true"
+            android:text="待启用~"
             android:textColor="#ffffff"
-            android:textSize="@dimen/sp_20" />
+            android:textSize="@dimen/sp_24" />
 
-            <TextView
-                android:layout_marginTop="@dimen/dp_13"
-                android:id="@+id/meet_time"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="00:00:00"
-                android:textColor="#c4c2c2"
-                android:textSize="@dimen/sp_14" />
+        <TextView
+            android:visibility="gone"
+            android:layout_marginTop="@dimen/dp_10"
+            android:id="@+id/meet_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="00:00:00"
+            android:textColor="#999999"
+            android:textSize="@dimen/sp_15" />
 
-
-
-
-
-
+        <TextView
+            android:visibility="gone"
+            android:layout_marginTop="@dimen/dp_10"
+            android:id="@+id/meet_state1"
+            android:textSize="@dimen/sp_15"
+            android:gravity="center"
+            android:textColor="#EA332A"
+            android:text="状态"
+            android:layout_centerInParent="true"
+            android:layout_alignParentRight="true"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"/>
     </LinearLayout>
 
 
-
-    <RelativeLayout
-        android:id="@+id/meet_state_rl"
+    <LinearLayout
+        android:id="@+id/open_ll"
+        android:layout_marginTop="@dimen/dp_30"
         android:layout_width="match_parent"
-        android:layout_height="@dimen/dp_135"
-        android:layout_marginTop="@dimen/dp_20"
-        android:background="@drawable/shape_radius_8_1a252f">
+        android:layout_height="@dimen/dp_50">
+        <Button
+            android:layout_weight="1"
+            android:id="@+id/open"
+            android:textStyle="bold"
+            android:textSize="@dimen/sp_16"
+            android:text="开门"
+            android:background="@drawable/shape_radius_4_1950d8"
+            android:layout_width="0dp"
+            android:layout_marginRight="@dimen/dp_5"
+            android:layout_height="@dimen/dp_50"/>
+        <Button
+            android:layout_marginLeft="@dimen/dp_5"
+            android:layout_weight="1"
+            android:id="@+id/door_bell"
+            android:textStyle="bold"
+            android:textSize="@dimen/sp_16"
+            android:text="门铃"
+            android:background="@drawable/shape_radius_4_1950d8"
+            android:layout_width="0dp"
+            android:layout_height="@dimen/dp_50"/>
 
-        <TextView
-            android:id="@+id/meet_state"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_centerInParent="true"
-            android:text="会议室状态"
-            android:textColor="#ffffff"
-            android:textSize="@dimen/sp_33" />
 
-
-    </RelativeLayout>
-
-
-<Button
-    android:id="@+id/open"
-    android:textStyle="bold"
-    android:textSize="@dimen/sp_16"
-    android:text="开门"
-    android:layout_marginTop="@dimen/dp_45"
-    android:background="@drawable/shape_radius_4_1950d8"
-    android:layout_width="match_parent"
-    android:layout_height="@dimen/dp_50"/>
+    </LinearLayout>
 </LinearLayout>

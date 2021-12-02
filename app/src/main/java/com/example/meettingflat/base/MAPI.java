@@ -5,6 +5,7 @@ import android.content.Context;
 import android.widget.Toast;
 
 import com.example.meettingflat.Utils.GsonUtils;
+import com.example.meettingflat.bean.AdBean;
 import com.example.meettingflat.bean.BaseBean;
 import com.example.meettingflat.bean.GetLinkBean;
 import com.example.meettingflat.bean.MeetingBean;
@@ -33,6 +34,7 @@ public class MAPI {
     private String upData = "meetingDoor";//上传们数据
     private String link = "meetingDoorLinkage";
     private String getLink = "meetingDoorIsLinkage";
+    private String getAd = "meeting/av";
 
 
     /**
@@ -327,6 +329,29 @@ public class MAPI {
                 });
     }
 
+    public void getAd(Context context,  CallAd call) {
+//        String url = ip +getAd;
+        String url = "http://118.31.32.134:10301/api/meeting/av";
+        OkGo.<String>get(url)
+                .tag(context)
+                .cacheMode(CacheMode.DEFAULT)
+                .execute(new StringCallback() {
+
+                    @Override
+                    public void onSuccess(Response<String> response) {
+                        String json = response.body();
+                        AdBean adBean = GsonUtils.GsonToBean(json, AdBean.class);
+                        if(adBean.getCode()==200&&adBean.getMsg().equals("success")) {
+                            call.call(adBean);
+                        }
+                    }
+
+                    @Override
+                    public void onError(Response<String> response) {
+
+                    }
+                });
+    }
     public void showT(Context context, String s) {
         Toast.makeText(context, s, Toast.LENGTH_SHORT).show();
     }
@@ -350,5 +375,8 @@ public class MAPI {
     }
     public interface CallLink {
         void call(GetLinkBean bean);
+    }
+    public interface CallAd {
+        void call(AdBean bean);
     }
 }

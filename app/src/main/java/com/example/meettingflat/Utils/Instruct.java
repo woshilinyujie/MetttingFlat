@@ -12,12 +12,18 @@ public class Instruct {
 
       public static final String CANCELNORMALLYOPEN="+CAWAYOPEN:0";//取消常开
       public static final String CANCELNORMALLYOPEN1="+CCAWAY:0";//务器通知取消常开
+      public static final String SELECTDOOR="SELECTDOOR";//务器通知取消常开
 
       public static final String DATA="+DATATOPAD";//硬件数据
+      public static final String GETID="+CGETDEID";//获取后板id
 
 
       public static final int SHOWTOAST=1;//
       public static final int PUSHLINK=2;//
+      public static final int REFRESHTIME=4;//
+      public static final int UPDATE=5;//
+      public static final int DOORBELL=6;//
+      public static final int DOORBELLPLAY=7;//
       public static final int DIALOG=3;//
       public static String SENDBULECARD="+CPWBLEADD:";//发送添加蓝牙指令
       public static String DELETEBULECARD="+CPWBLEDEL:";//发送添加蓝牙指令
