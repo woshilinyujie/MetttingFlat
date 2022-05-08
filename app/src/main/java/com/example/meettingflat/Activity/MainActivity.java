@@ -173,30 +173,13 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
                     handler.sendEmptyMessageDelayed(Instruct.UPDATE, 24 * 60 * 60 * 1000);
                     break;
                 case Instruct.DOORBELL://门铃延迟
-                    mediaplayer.stop();
-                    try {
-                        mediaplayer.prepare();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
+//                    mediaplayer.stop();
+//                    try {
+//                        mediaplayer.prepare();
+//                    } catch (IOException e) {
+//                        e.printStackTrace();
+//                    }
                     doorBell.setEnabled(true);
-                    break;
-                case Instruct.DOORBELLPLAY://门铃播放
-                    String id=(String)msg.obj;
-                    doorBell.setEnabled(false);
-                    mediaplayer.setLooping(true);//设置为循环播放
-                    mediaplayer.start();
-                    DoorBean doorBean=new DoorBean();
-                    doorBean.setAck(0);
-                    doorBean.setCmd(0x1110);
-                    doorBean.setDevType("WL025S1");
-                    doorBean.setDevId(id);
-                    doorBean.setSeqId(1);
-                    doorBean.setTime(System.currentTimeMillis());
-                    doorBean.setVendor("general");
-                    String json = GsonUtils.GsonString(doorBean);
-                    rbmq.pushMsg(json);
-                    handler.sendEmptyMessageDelayed(Instruct.DOORBELL,5000);
                     break;
             }
         }
@@ -268,6 +251,10 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
         doorBell.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                doorBell.setEnabled(false);
+//                mediaplayer.setLooping(true);//设置为循环播放
+//                mediaplayer.start();
+                handler.sendEmptyMessageDelayed(Instruct.DOORBELL,3000);
                 serialPort.sendDate((Instruct.GETID + "\r\n").getBytes());//先去拿id
             }
         });
@@ -478,16 +465,6 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
                             }
                             break;
                     }
-                }else if (data.contains("AT+DEID=")) {
-                    String[] split = data.split("=");
-                    if(!TextUtils.isEmpty(split[1])){
-                        Message message = handler.obtainMessage();
-                        message.what=Instruct.DOORBELLPLAY;
-                        message.obj=split[1];
-                        handler.sendMessage(message);
-                    }else{
-                        Log.e("后板门id获取----",split[1]+"");
-                    }
                 }
             }
         });
@@ -523,7 +500,7 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
         filter.addAction(Intent.ACTION_TIME_TICK);
         registerReceiver(receiver, filter);
         dateUtils = DateUtils.getInstance();
-        //权限重置
+        //重置
         String s = Instruct.DELETEBULECARD + "000000000000" + "\r\n";
         serialPort.sendDate(s.getBytes());
         callAdListener = new MAPI.CallAd() {
@@ -668,7 +645,7 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
             } else {
                 meetName.setText("今日暂无会议哦~");
             }
-            //删除或添加权限
+            //删除或添加
             sendOrDeletePermission();
             return;
         }
@@ -699,7 +676,7 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
                 //取消的会议
                 for (int y = 0; y < permissionList.size(); y++) {
                     if (permissionList.get(y).getMeetId().equals(events.get(x).getId())) {
-                        //取消的会议删除权限
+                        //取消的会议删除
                         permissionList.get(y).setCancel(true);
                         sendOrDeletePermission();
                     }
@@ -718,7 +695,7 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
             } else {
                 meetName.setText("今日暂无会议哦~");
             }
-            //删除或添加权限
+            //删除或添加
             sendOrDeletePermission();
             return;
         }
@@ -755,13 +732,13 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
         meetName.setText(eventsBean.getSummary());
         meetTime.setText(dateUtils.dateFormat8(date.getTime()) + "-" + dateUtils.dateFormat8(date1.getTime()));
 
-        //删除或添加权限
+        //删除或添加
         sendOrDeletePermission();
     }
 
 
     public void addPermission(List<MeetingBean.EventsBean> events, int flag, long beginTime, long lastTime) {
-        Log.e("添加权限", "打印events：" + events.toString());
+        Log.e("添加", "打印events：" + events.toString());
         if (userBean != null && userBean.getData().size() > 0) {
             for (int x = 0; x < events.get(flag).getAttendees().size(); x++) {
                 for (int y = 0; y < userBean.getData().size(); y++) {

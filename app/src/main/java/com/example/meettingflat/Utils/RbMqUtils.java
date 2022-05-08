@@ -48,8 +48,8 @@ public class RbMqUtils {
      * 连接设置
      */
     public void setUpConnectionFactory() {
-//        factory.setHost(MQIP);//主机地址
-        factory.setHost("116.62.46.10");
+        factory.setHost(MQIP);//主机地址
+//        factory.setHost("116.62.46.10");
         factory.setPort(5672);// 端口号
         factory.setUsername("android");// 用户名
         factory.setPassword("Wl2016822");// 密码
