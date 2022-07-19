@@ -653,7 +653,7 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
         for (int x = 0; x < events.size(); x++) {
             MeetingBean.EventsBean.LocationBean location = events.get(x).getLocation();
 
-            if (location != null && location.getDisplayName().equals(mMeetAddress) && events.get(x).getStatus().equals("confirmed")) {//是否是该会议室的会议
+            if (location != null&&location.getDisplayName()!=null && location.getDisplayName().equals(mMeetAddress) && events.get(x).getStatus().equals("confirmed")) {//是否是该会议室的会议
                 //未取消会议
                 String endTime = events.get(x).getEnd().getDateTime();
                 String startTime = events.get(x).getStart().getDateTime();
@@ -672,7 +672,7 @@ public class MainActivity extends AppCompatActivity implements PLOnCompletionLis
                     lastTime = endDate.getTime();
                     flag = x;
                 }
-            } else if (location != null && location.getDisplayName().equals(mMeetAddress) && permissionList != null) {
+            } else if (location != null&&location.getDisplayName()!=null && location.getDisplayName().equals(mMeetAddress) && permissionList != null) {
                 //取消的会议
                 for (int y = 0; y < permissionList.size(); y++) {
                     if (permissionList.get(y).getMeetId().equals(events.get(x).getId())) {

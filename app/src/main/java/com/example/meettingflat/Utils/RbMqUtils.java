@@ -140,13 +140,13 @@ public class RbMqUtils {
            }
        });
        thread.start();
-       Thread thread1 = new Thread(new Runnable() {
-           @Override
-           public void run() {
-               subscribeONe();
-           }
-       });
-       thread1.start();
+//       Thread thread1 = new Thread(new Runnable() {
+//           @Override
+//           public void run() {
+//               subscribeONe();
+//           }
+//       });
+//       thread1.start();
     }
 
 

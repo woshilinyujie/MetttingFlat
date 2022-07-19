@@ -118,7 +118,7 @@ public class CurrentMeetingActivity extends AppCompatActivity {
                                         message.setVisibility(View.GONE);
                                         for (int x = 0; x < bean.getEvents().size(); x++) {
                                             MeetingBean.EventsBean.LocationBean location = bean.getEvents().get(x).getLocation();
-                                            if (location != null && location.getDisplayName().equals(mMeetingAddress) && bean.getEvents().get(x).getStatus().equals("confirmed")) {
+                                            if (location != null&&location.getDisplayName()!=null&& location.getDisplayName().equals(mMeetingAddress) && bean.getEvents().get(x).getStatus().equals("confirmed")) {
                                                 list.add(bean.getEvents().get(x));
                                             }
                                         }

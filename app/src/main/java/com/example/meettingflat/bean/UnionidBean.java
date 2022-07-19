@@ -264,7 +264,7 @@ public class UnionidBean {
 
         public static class DeptOrderListBean {
             private Integer dept_id;
-            private Integer order;
+            private String order;
 
             public Integer getDept_id() {
                 return dept_id;
@@ -274,11 +274,11 @@ public class UnionidBean {
                 this.dept_id = dept_id;
             }
 
-            public Integer getOrder() {
+            public String getOrder() {
                 return order;
             }
 
-            public void setOrder(Integer order) {
+            public void setOrder(String order) {
                 this.order = order;
             }
         }
